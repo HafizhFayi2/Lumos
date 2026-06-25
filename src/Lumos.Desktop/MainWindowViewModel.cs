@@ -68,10 +68,13 @@ public class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(PlayheadLeft));
                 OnPropertyChanged(nameof(PlayheadHandleLeft));
                 OnPropertyChanged(nameof(TimelineWidthPixels));
-                foreach (var clip in V2Clips) clip.UpdateZoom(value);
-                foreach (var clip in V1Clips) clip.UpdateZoom(value);
-                foreach (var clip in A1Clips) clip.UpdateZoom(value);
-                foreach (var clip in A2Clips) clip.UpdateZoom(value);
+                foreach (var track in Tracks)
+                {
+                    foreach (var clip in track.Clips)
+                    {
+                        clip.UpdateZoom(value);
+                    }
+                }
             }
         }
     }
@@ -167,10 +170,7 @@ public class MainWindowViewModel : ViewModelBase
     public bool IsMcpTabActive => ActiveAITab == "MCP Activity";
 
     public ObservableCollection<AssetViewModel> Assets { get; } = new();
-    public ObservableCollection<ClipViewModel> V2Clips { get; } = new();
-    public ObservableCollection<ClipViewModel> V1Clips { get; } = new();
-    public ObservableCollection<ClipViewModel> A1Clips { get; } = new();
-    public ObservableCollection<ClipViewModel> A2Clips { get; } = new();
+    public ObservableCollection<TrackViewModel> Tracks { get; } = new();
     public ObservableCollection<ChatMessageViewModel> AIChatMessages { get; } = new();
     public ObservableCollection<string> McpActivityLogs { get; } = new();
 
@@ -243,47 +243,45 @@ public class MainWindowViewModel : ViewModelBase
         {
             Fps = timeline.Fps > 0 ? timeline.Fps : 30;
             TotalFrames = timeline.TotalFrames;
-            UpdateTrackClips("V2", V2Clips, timeline);
-            UpdateTrackClips("V1", V1Clips, timeline);
-            UpdateTrackClips("A1", A1Clips, timeline);
-            UpdateTrackClips("A2", A2Clips, timeline);
-            HasClips = V2Clips.Any() || V1Clips.Any() || A1Clips.Any() || A2Clips.Any();
+            SyncTracks(timeline);
+            HasClips = Tracks.Any(t => t.Clips.Any());
         }
     }
 
-    private void UpdateTrackClips(string trackId, ObservableCollection<ClipViewModel> collection, Timeline timeline)
+    private void SyncTracks(Timeline timeline)
     {
-        var track = timeline.Tracks.FirstOrDefault(t => t.Id == trackId);
-        if (track == null)
+        var existingIds = Tracks.Select(t => t.Id).ToHashSet();
+        var currentIds = timeline.Tracks.Select(t => t.Id).ToHashSet();
+
+        // Remove deleted tracks
+        for (int i = Tracks.Count - 1; i >= 0; i--)
         {
-            collection.Clear();
-            return;
+            if (!currentIds.Contains(Tracks[i].Id))
+                Tracks.RemoveAt(i);
         }
 
-        // Simple sync
-        var existingIds = collection.Select(c => c.Id).ToHashSet();
-        var currentIds = track.Clips.Select(c => c.Id).ToHashSet();
-
-        // Remove old
-        for (int i = collection.Count - 1; i >= 0; i--)
+        // Add or update tracks (maintain order from domain timeline)
+        for (int i = 0; i < timeline.Tracks.Count; i++)
         {
-            if (!currentIds.Contains(collection[i].Id))
-                collection.RemoveAt(i);
-        }
-
-        // Add or update
-        foreach (var clip in track.Clips)
-        {
-            var existing = collection.FirstOrDefault(c => c.Id == clip.Id);
-            if (existing != null)
+            var coreTrack = timeline.Tracks[i];
+            var existingTrack = Tracks.FirstOrDefault(t => t.Id == coreTrack.Id);
+            
+            if (existingTrack == null)
             {
-                // Trigger width/left change if duration/start frame changed
-                existing.UpdateZoom(ZoomScale);
+                existingTrack = new TrackViewModel(coreTrack);
+                Tracks.Insert(i, existingTrack);
             }
             else
             {
-                collection.Add(new ClipViewModel(clip, ZoomScale));
+                // Ensure correct order if tracks were reordered
+                int currentIndex = Tracks.IndexOf(existingTrack);
+                if (currentIndex != i)
+                {
+                    Tracks.Move(currentIndex, i);
+                }
             }
+
+            existingTrack.SyncClips(coreTrack.Clips, ZoomScale);
         }
     }
 }
@@ -402,5 +400,42 @@ public class ChatMessageViewModel : ViewModelBase
         Text = text;
         IsUser = isUser;
         Time = DateTime.Now.ToString("HH:mm");
+    }
+}
+
+public class TrackViewModel : ViewModelBase
+{
+    public string Id { get; }
+    public string TypeLabel { get; }
+    public ObservableCollection<ClipViewModel> Clips { get; } = new();
+
+    public TrackViewModel(Track track)
+    {
+        Id = track.Id;
+        TypeLabel = track.Type == ClipType.Video ? "VIDEO" : "AUDIO";
+    }
+
+    public void SyncClips(IReadOnlyList<Clip> coreClips, double zoomScale)
+    {
+        var currentIds = coreClips.Select(c => c.Id).ToHashSet();
+        
+        for (int i = Clips.Count - 1; i >= 0; i--)
+        {
+            if (!currentIds.Contains(Clips[i].Id))
+                Clips.RemoveAt(i);
+        }
+
+        foreach (var clip in coreClips)
+        {
+            var existing = Clips.FirstOrDefault(c => c.Id == clip.Id);
+            if (existing != null)
+            {
+                existing.UpdateZoom(zoomScale);
+            }
+            else
+            {
+                Clips.Add(new ClipViewModel(clip, zoomScale));
+            }
+        }
     }
 }

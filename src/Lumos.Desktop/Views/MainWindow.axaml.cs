@@ -39,8 +39,8 @@ public partial class MainWindow : Window
         this.FindControl<Button>("BtnPlayPause")!.Click    += OnPlayPauseClicked;
         this.FindControl<Button>("BtnToStart")!.Click      += OnToStartClicked;
         this.FindControl<Button>("BtnToEnd")!.Click        += OnToEndClicked;
-        this.FindControl<Button>("BtnStepBack")!.Click     += OnStepBackClicked;
-        this.FindControl<Button>("BtnStepFwd")!.Click      += OnStepFwdClicked;
+        // this.FindControl<Button>("BtnStepBack")!.Click     += OnStepBackClicked;
+        // this.FindControl<Button>("BtnStepFwd")!.Click      += OnStepFwdClicked;
         this.FindControl<Button>("BtnUndo")!.Click         += OnUndoClicked;
         this.FindControl<Button>("BtnRedo")!.Click         += OnRedoClicked;
 
@@ -62,8 +62,8 @@ public partial class MainWindow : Window
         this.FindControl<Button>("ChipCaptions")!.Click    += OnChipCaptionsClicked;
 
         // Action Toolbar
-        this.FindControl<Button>("BtnSplitAction")!.Click  += OnSplitActionClicked;
-        this.FindControl<Button>("BtnDeleteAction")!.Click += OnDeleteActionClicked;
+        // this.FindControl<Button>("BtnSplitAction")!.Click  += OnSplitActionClicked;
+        // this.FindControl<Button>("BtnDeleteAction")!.Click += OnDeleteActionClicked;
 
         // Ruler and Tracks Scrubber
         var ruler = this.FindControl<Border>("TimelineRulerBorder")!;
@@ -76,6 +76,12 @@ public partial class MainWindow : Window
         // Sync ruler scroll offset when timeline scrollviewer scrolls
         var scrollViewer = this.FindControl<ScrollViewer>("TimelineScrollViewer")!;
         scrollViewer.ScrollChanged += OnTimelineScrollChanged;
+    }
+
+    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            BeginMoveDrag(e);
     }
 
     private void OnTimelineScrollChanged(object? sender, ScrollChangedEventArgs e)
@@ -229,10 +235,13 @@ public partial class MainWindow : Window
     private void DeselectAllClips()
     {
         _selectedClipId = null;
-        foreach (var c in VM.V2Clips) c.IsSelected = false;
-        foreach (var c in VM.V1Clips) c.IsSelected = false;
-        foreach (var c in VM.A1Clips) c.IsSelected = false;
-        foreach (var c in VM.A2Clips) c.IsSelected = false;
+        foreach (var track in VM.Tracks)
+        {
+            foreach (var clip in track.Clips)
+            {
+                clip.IsSelected = false;
+            }
+        }
     }
 
     private Clip? GetSelectedClip()

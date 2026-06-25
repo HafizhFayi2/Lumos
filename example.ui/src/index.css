@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #09090b;
+  --color-surface-soft: #121214;
+  --color-surface-card: #18181b;
+  --color-surface-card-strong: #27272a;
+  --color-surface-timeline: #0a0a0c;
+  --color-surface-elevated: #1e1e24;
+  --color-surface-elevated-soft: #27272a;
+  
+  --color-hairline: #3f3f46;
+  --color-hairline-soft: #27272a;
+
+  --color-primary: #3b82f6;
+  --color-primary-active: #2563eb;
+  --color-primary-disabled: #1e3a8a;
+
+  --color-accent-secondary: #60a5fa;
+  --color-accent-tertiary: #a855f7;
+  --color-accent-soft: #312e81;
+  --color-accent-pale: #1e1b4b;
+
+  --color-ink: #f8fafc;
+  --color-body-strong: #e2e8f0;
+  --color-body: #94a3b8;
+  --color-muted: #64748b;
+  --color-muted-soft: #475569;
+  
+  --color-on-primary: #ffffff;
+  --color-on-accent-pale: #f8fafc;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-live: #ef4444;
+
+  --font-sans: "Inter", -apple-system, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-canvas text-ink font-sans antialiased overflow-hidden selection:bg-primary/30;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-hairline rounded-full border-2 border-solid border-canvas bg-clip-padding;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-soft;
+  }
+}
+

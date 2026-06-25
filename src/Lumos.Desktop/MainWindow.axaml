@@ -4,31 +4,35 @@
         xmlns:controls="using:Lumos.Desktop.Controls"
         x:Class="Lumos.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="Lumos"
-        Width="1440" Height="900"
-        MinWidth="1024" MinHeight="600"
-        Background="#0D1117"
-        WindowStartupLocation="CenterScreen">
+        Title=""
+        Width="1280" Height="720" WindowState="Maximized"
+        MinWidth="1200" MinHeight="680"
+        Background="#09090b"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="PreferSystemChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        FontFamily="Inter, Segoe UI Variable, Segoe UI, sans-serif">
 
   <Window.Styles>
 
-    <!-- ── Tab RadioButton ────────────────────────────────────────────── -->
+    <!-- Tab RadioButton -->
     <Style Selector="RadioButton.tab">
-      <Setter Property="Foreground" Value="#8B949E"/>
+      <Setter Property="Foreground" Value="#94a3b8"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="Margin" Value="0,0,20,0"/>
+      <Setter Property="Margin" Value="0,0,22,0"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <ControlTemplate>
-          <Border Padding="0,8,0,0" Background="Transparent">
+          <Border Padding="0,10,0,0" Background="Transparent">
             <StackPanel Spacing="0">
               <ContentPresenter Name="PART_Content"
                                 Content="{TemplateBinding Content}"
                                 Foreground="{TemplateBinding Foreground}"
                                 FontSize="{TemplateBinding FontSize}"
                                 FontWeight="{TemplateBinding FontWeight}"
-                                Margin="0,0,0,6"/>
+                                Margin="0,0,0,8"/>
               <Border Name="PART_Bar" Height="2" CornerRadius="1" Background="Transparent"/>
             </StackPanel>
           </Border>
@@ -36,265 +40,308 @@
       </Setter>
     </Style>
     <Style Selector="RadioButton.tab:checked">
-      <Setter Property="Foreground" Value="#F4F8FC"/>
+      <Setter Property="Foreground" Value="#f8fafc"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style Selector="RadioButton.tab:checked /template/ Border#PART_Bar">
-      <Setter Property="Background" Value="#2986F6"/>
+      <Setter Property="Background" Value="#3b82f6"/>
     </Style>
     <Style Selector="RadioButton.tab:pointerover">
-      <Setter Property="Foreground" Value="#C9D1D9"/>
+      <Setter Property="Foreground" Value="#e2e8f0"/>
     </Style>
 
-    <!-- ── Toolbar icon button ─────────────────────────────────────────── -->
+    <!-- Icon button -->
     <Style Selector="Button.icon">
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderBrush" Value="Transparent"/>
-      <Setter Property="Foreground" Value="#8B949E"/>
+      <Setter Property="Foreground" Value="#64748b"/>
       <Setter Property="Padding" Value="7,5"/>
       <Setter Property="CornerRadius" Value="4"/>
       <Setter Property="FontSize" Value="14"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.icon:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#1C2430"/>
-      <Setter Property="TextElement.Foreground" Value="#C9D1D9"/>
-    </Style>
-    <Style Selector="Button.icon:pressed /template/ ContentPresenter">
-      <Setter Property="Background" Value="#232C38"/>
+      <Setter Property="Background" Value="#27272a"/>
+      <Setter Property="TextElement.Foreground" Value="#f8fafc"/>
     </Style>
 
-    <!-- ── Menu button ────────────────────────────────────────────────── -->
+    <!-- Menu button -->
     <Style Selector="Button.menu">
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderBrush" Value="Transparent"/>
-      <Setter Property="Foreground" Value="#C9D1D9"/>
+      <Setter Property="Foreground" Value="#94a3b8"/>
       <Setter Property="Padding" Value="10,0"/>
-      <Setter Property="Height" Value="44"/>
-      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Height" Value="40"/>
+      <Setter Property="FontSize" Value="12"/>
       <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="CornerRadius" Value="0"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Margin" Value="2,0"/>
     </Style>
     <Style Selector="Button.menu:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#111820"/>
+      <Setter Property="Background" Value="#27272a"/>
+      <Setter Property="TextElement.Foreground" Value="#f8fafc"/>
     </Style>
 
-    <!-- ── Primary button ─────────────────────────────────────────────── -->
+    <!-- Primary button -->
     <Style Selector="Button.primary">
-      <Setter Property="Background" Value="#2986F6"/>
+      <Setter Property="Background" Value="#3b82f6"/>
       <Setter Property="BorderBrush" Value="Transparent"/>
-      <Setter Property="Foreground" Value="#FFFFFF"/>
+      <Setter Property="Foreground" Value="#ffffff"/>
       <Setter Property="Padding" Value="16,7"/>
-      <Setter Property="CornerRadius" Value="6"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="FontWeight" Value="Medium"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#1E6FD1"/>
+      <Setter Property="Background" Value="#60a5fa"/>
     </Style>
     <Style Selector="Button.primary:pressed /template/ ContentPresenter">
-      <Setter Property="Background" Value="#1860BA"/>
+      <Setter Property="Background" Value="#2563eb"/>
     </Style>
 
-    <!-- ── Secondary button ───────────────────────────────────────────── -->
+    <!-- Secondary button -->
     <Style Selector="Button.secondary">
-      <Setter Property="Background" Value="#11161D"/>
-      <Setter Property="BorderBrush" Value="#232C38"/>
+      <Setter Property="Background" Value="#121214"/>
+      <Setter Property="BorderBrush" Value="#3f3f46"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Foreground" Value="#8B949E"/>
+      <Setter Property="Foreground" Value="#94a3b8"/>
       <Setter Property="Padding" Value="10,5"/>
       <Setter Property="CornerRadius" Value="5"/>
       <Setter Property="FontSize" Value="12"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#1C2430"/>
-      <Setter Property="TextElement.Foreground" Value="#C9D1D9"/>
+      <Setter Property="Background" Value="#27272a"/>
+      <Setter Property="TextElement.Foreground" Value="#f8fafc"/>
     </Style>
 
-    <!-- ── Transport button ───────────────────────────────────────────── -->
+    <!-- Transport button -->
     <Style Selector="Button.transport">
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderBrush" Value="Transparent"/>
-      <Setter Property="Foreground" Value="#C9D1D9"/>
+      <Setter Property="Foreground" Value="#94a3b8"/>
       <Setter Property="Padding" Value="6,4"/>
       <Setter Property="FontSize" Value="15"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="CornerRadius" Value="4"/>
     </Style>
     <Style Selector="Button.transport:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#1C2430"/>
+      <Setter Property="Background" Value="#27272a"/>
+      <Setter Property="TextElement.Foreground" Value="#f8fafc"/>
     </Style>
 
-    <!-- ── Quick-action chip button ──────────────────────────────────── -->
+    <!-- Quick-action chip -->
     <Style Selector="Button.chip">
-      <Setter Property="Background" Value="#11161D"/>
-      <Setter Property="BorderBrush" Value="#232C38"/>
+      <Setter Property="Background" Value="#121214"/>
+      <Setter Property="BorderBrush" Value="#3f3f46"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Foreground" Value="#8B949E"/>
-      <Setter Property="Padding" Value="10,6"/>
-      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="Foreground" Value="#94a3b8"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="CornerRadius" Value="8"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="HorizontalContentAlignment" Value="Left"/>
       <Setter Property="FontSize" Value="12"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.chip:pointerover /template/ ContentPresenter">
-      <Setter Property="Background" Value="#1C2430"/>
-      <Setter Property="TextElement.Foreground" Value="#C9D1D9"/>
+      <Setter Property="Background" Value="#27272a"/>
+      <Setter Property="TextElement.Foreground" Value="#f8fafc"/>
     </Style>
 
-    <!-- ── TextBox search ─────────────────────────────────────────────── -->
+    <!-- Search TextBox -->
     <Style Selector="TextBox.search">
-      <Setter Property="Background" Value="#11161D"/>
-      <Setter Property="BorderBrush" Value="#232C38"/>
+      <Setter Property="Background" Value="#121214"/>
+      <Setter Property="BorderBrush" Value="#3f3f46"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Foreground" Value="#C9D1D9"/>
-      <Setter Property="CaretBrush" Value="#2986F6"/>
+      <Setter Property="Foreground" Value="#f8fafc"/>
+      <Setter Property="CaretBrush" Value="#3b82f6"/>
       <Setter Property="FontSize" Value="12"/>
       <Setter Property="Padding" Value="8,6"/>
       <Setter Property="CornerRadius" Value="6"/>
     </Style>
     <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
-      <Setter Property="BorderBrush" Value="#2986F6"/>
+      <Setter Property="BorderBrush" Value="#3b82f6"/>
     </Style>
 
-    <!-- ── Track label ────────────────────────────────────────────────── -->
+    <!-- Track type label -->
     <Style Selector="TextBlock.track-type">
       <Setter Property="FontSize" Value="9"/>
       <Setter Property="FontWeight" Value="Bold"/>
-      <Setter Property="Foreground" Value="#3D4A5C"/>
-      <Setter Property="LetterSpacing" Value="1"/>
+      <Setter Property="Foreground" Value="#475569"/>
+      <Setter Property="LetterSpacing" Value="1.2"/>
+    </Style>
+
+    <!-- Separator -->
+    <Style Selector="Border.vsep">
+      <Setter Property="Width" Value="1"/>
+      <Setter Property="Background" Value="#3f3f46"/>
+      <Setter Property="Margin" Value="4,8"/>
+    </Style>
+    <Style Selector="Border.hsep">
+      <Setter Property="Height" Value="1"/>
+      <Setter Property="Background" Value="#3f3f46"/>
+      <Setter Property="Margin" Value="0"/>
     </Style>
 
   </Window.Styles>
 
-  <Grid RowDefinitions="44,*">
+  <!-- Root: title bar row + top workspace + bottom timeline -->
+  <Grid RowDefinitions="48,*,320">
 
-    <!-- ══ TOP BAR ══════════════════════════════════════════════════════ -->
-    <Border Grid.Row="0" Background="#0D1117" BorderBrush="#1A212B" BorderThickness="0,0,0,1"
-            ZIndex="10">
+    <!-- ══ TITLE BAR ═══════════════════════════════════════════════════════ -->
+    <Border Grid.Row="0" Name="TitleBar"
+            Background="#09090b" BorderBrush="#3f3f46" BorderThickness="0,0,0,1"
+            BoxShadow="0 2 10 0 #60000000"
+            ZIndex="20" PointerPressed="OnTitleBarPointerPressed">
       <Grid ColumnDefinitions="Auto,*,Auto">
 
-        <!-- Logo + Menu items -->
-        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-          <Border Width="28" Height="28" Margin="10,0,6,0" CornerRadius="6" Background="#2986F6">
-            <TextBlock Text="P" Foreground="White" FontWeight="Bold" FontSize="14"
+        <!-- Logo + menu items -->
+        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                    IsHitTestVisible="True">
+          <Border Width="20" Height="20" Margin="12,0,16,0" CornerRadius="4">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                <GradientStop Color="#3b82f6" Offset="0"/>
+                <GradientStop Color="#312e81" Offset="1"/>
+              </LinearGradientBrush>
+            </Border.Background>
+            <TextBlock Text="🎥" Foreground="White" FontSize="10"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
-          <Button Classes="menu" Name="MenuFile"    Content="File"/>
-          <Button Classes="menu" Name="MenuEdit"    Content="Edit"/>
+          <TextBlock Text="Palmier" Foreground="#f8fafc" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,24,0"/>
+          
+          <Button Classes="menu" Name="MenuFile"     Content="File"/>
+          <Button Classes="menu" Name="MenuEdit"     Content="Edit"/>
           <Button Classes="menu" Name="MenuTimeline" Content="Timeline"/>
-          <Button Classes="menu" Name="MenuView"    Content="View"/>
-          <Button Classes="menu" Name="MenuWindow"  Content="Window"/>
-          <Button Classes="menu" Name="MenuHelp"    Content="Help"/>
+          <Button Classes="menu" Name="MenuView"     Content="View"/>
+          <Button Classes="menu" Name="MenuWindow"   Content="Window"/>
+          <Button Classes="menu" Name="MenuHelp"     Content="Help"/>
         </StackPanel>
 
-        <!-- Center: project name + auto-saved -->
-        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center"
-                    VerticalAlignment="Center" Spacing="8">
-          <TextBlock Name="ProjectNameText" Text="{Binding ProjectName}"
-                     Foreground="#D7E3F0" FontSize="13" FontWeight="SemiBold"
-                     VerticalAlignment="Center"/>
-          <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-            <Ellipse Width="6" Height="6" Fill="#4ADE80"/>
-            <TextBlock Text="Auto-saved" Foreground="#5C6A7C" FontSize="11"/>
+        <!-- Centre: project name + saved indicator — this area is draggable -->
+        <Border Grid.Column="1" Background="Transparent"
+                PointerPressed="OnTitleBarPointerPressed">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                      VerticalAlignment="Center" Spacing="10">
+            <TextBlock Name="ProjectNameText" Text="{Binding ProjectName}"
+                       Foreground="#f8fafc" FontSize="13" FontWeight="Medium"
+                       VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+              <Ellipse Width="6" Height="6" Fill="#10b981"/>
+              <TextBlock Text="Auto-saved" Foreground="#475569" FontSize="11" FontWeight="Medium"/>
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
+        </Border>
 
-        <!-- Right: Undo / Redo / Settings / Export -->
+        <!-- Right: actions — leave 138px gap for Win32 chrome buttons -->
         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
-                    Spacing="2" Margin="0,0,12,0">
-          <Button Classes="icon" Name="BtnUndo" ToolTip.Tip="Undo" FontSize="16">↩</Button>
-          <Button Classes="icon" Name="BtnRedo" ToolTip.Tip="Redo" FontSize="16">↪</Button>
-          <Border Width="1" Height="18" Background="#232C38" Margin="4,0"/>
+                    Spacing="2" Margin="0,0,138,0" IsHitTestVisible="True">
+          <Button Classes="icon" Name="BtnUndo" ToolTip.Tip="Undo" FontSize="15">↩</Button>
+          <Button Classes="icon" Name="BtnRedo" ToolTip.Tip="Redo" FontSize="15" Margin="0,0,8,0">↪</Button>
+          <Button Classes="primary" Name="BtnExport" Margin="6,0,16,0" Padding="16,6" FontSize="13" CornerRadius="2">Export</Button>
           <Button Classes="icon" Name="BtnSettings" ToolTip.Tip="Settings" FontSize="15">⚙</Button>
-          <Button Classes="primary" Name="BtnExport" Margin="8,0,0,0">Export</Button>
         </StackPanel>
 
       </Grid>
     </Border>
 
-    <!-- ══ MAIN AREA ══════════════════════════════════════════════════════ -->
+    <!-- ══ MAIN WORKSPACE ══════════════════════════════════════════════════ -->
     <Grid Grid.Row="1" ColumnDefinitions="280,*,320">
 
-      <!-- ── LEFT PANEL: Media Library ───────────────────────────────── -->
-      <Grid Grid.Column="0" RowDefinitions="38,Auto,*" Background="#161C26">
+      <!-- ── LEFT PANEL ─────────────────────────────────────────────────── -->
+      <Grid Grid.Column="0" RowDefinitions="44,Auto,*"
+            Background="#18181b">
+        <Border Grid.RowSpan="3" BorderBrush="#3f3f46" BorderThickness="0,0,1,0"/>
 
-        <!-- Panel tab bar -->
-        <Border Grid.Row="0" Background="#0D1117" BorderBrush="#1A212B" BorderThickness="0,0,0,1"
-                Padding="14,0">
+        <!-- Tab bar -->
+        <Border Grid.Row="0" Background="#09090b" BorderBrush="#3f3f46"
+                BorderThickness="0,0,0,1" Padding="16,0">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Stretch">
-            <RadioButton Classes="tab" GroupName="MediaPanelTab" Content="Media" IsChecked="{Binding IsMediaTabActive, Mode=OneWay}" Name="TabMedia"/>
-            <RadioButton Classes="tab" GroupName="MediaPanelTab" Content="Effects" IsChecked="{Binding IsEffectsTabActive, Mode=OneWay}" Name="TabEffects"/>
-            <RadioButton Classes="tab" GroupName="MediaPanelTab" Content="Library" IsChecked="{Binding IsLibraryTabActive, Mode=OneWay}" Name="TabLibrary"/>
+            <RadioButton Classes="tab" GroupName="MediaPanelTab" Content="Media"
+                         IsChecked="{Binding IsMediaTabActive, Mode=OneWay}" Name="TabMedia"/>
+            <RadioButton Classes="tab" GroupName="MediaPanelTab" Content="Effects"
+                         IsChecked="{Binding IsEffectsTabActive, Mode=OneWay}" Name="TabEffects"/>
+            <RadioButton Classes="tab" GroupName="MediaPanelTab" Content="Library"
+                         IsChecked="{Binding IsLibraryTabActive, Mode=OneWay}" Name="TabLibrary"/>
           </StackPanel>
         </Border>
 
         <!-- Search + Import -->
-        <StackPanel Grid.Row="1" Margin="10,8" Spacing="6">
-          <TextBox Classes="search" Name="SearchBox" Watermark="Search media..." Text="" />
+        <StackPanel Grid.Row="1" Margin="12,12,12,8" Spacing="8">
+          <TextBox Classes="search" Name="SearchBox" Watermark="Search media…" Text=""/>
           <Button Classes="secondary" Name="BtnImport" HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Center" Height="30" IsVisible="{Binding IsMediaTabActive}">
+                  HorizontalContentAlignment="Center" Height="32" FontSize="12"
+                  IsVisible="{Binding IsMediaTabActive}">
             <StackPanel Orientation="Horizontal" Spacing="6">
-              <TextBlock Text="⬇" FontSize="12" VerticalAlignment="Center"/>
-              <TextBlock Text="Import" FontSize="12" VerticalAlignment="Center"/>
+              <TextBlock Text="⬇" FontSize="11" VerticalAlignment="Center"/>
+              <TextBlock Text="Import" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
         </StackPanel>
 
-        <!-- Content Area -->
+        <!-- Content area -->
         <Grid Grid.Row="2">
-          
+
           <!-- Tab 1: Media -->
-          <ScrollViewer IsVisible="{Binding IsMediaTabActive}" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <ScrollViewer IsVisible="{Binding IsMediaTabActive}"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
             <StackPanel>
               <!-- Project Assets header -->
-              <Border Padding="12,6" Background="#111820" Margin="0,0,0,1">
+              <Border Padding="12,8" BorderBrush="#3f3f46" BorderThickness="0,0,0,1" Margin="0,0,0,1">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBlock Text="▸" Foreground="#5C6A7C" FontSize="11" VerticalAlignment="Center"/>
-                  <TextBlock Text="Project Assets" Foreground="#8B949E"
+                  <TextBlock Text="▸" Foreground="#475569" FontSize="10" VerticalAlignment="Center"/>
+                  <TextBlock Text="Project Assets" Foreground="#f8fafc"
                              FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 </StackPanel>
               </Border>
 
-              <!-- Empty media state -->
-              <StackPanel HorizontalAlignment="Center" Margin="0,40,0,0" Spacing="10" IsVisible="{Binding !HasAssets}">
-                <Border Width="52" Height="52" CornerRadius="26" Background="#1C2430"
+              <!-- Empty state -->
+              <StackPanel HorizontalAlignment="Center" Margin="0,48,0,0" Spacing="10"
+                          IsVisible="{Binding !HasAssets}">
+                <Border Width="56" Height="56" CornerRadius="28" Background="#1e1e24"
                         HorizontalAlignment="Center">
-                  <TextBlock Text="🎬" FontSize="22"
+                  <TextBlock Text="🎬" FontSize="24"
                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
-                <TextBlock Text="No media imported" Foreground="#5C6A7C" FontSize="12"
+                <TextBlock Text="No media imported" Foreground="#64748b" FontSize="12"
                            HorizontalAlignment="Center"/>
-                <TextBlock Text="Click Import to add files" Foreground="#2A3440" FontSize="11"
+                <TextBlock Text="Click Import to add files" Foreground="#475569" FontSize="11"
                            HorizontalAlignment="Center"/>
               </StackPanel>
 
-              <!-- Asset List -->
-              <ItemsControl ItemsSource="{Binding Assets}" IsVisible="{Binding HasAssets}" Margin="8">
+              <!-- Asset grid -->
+              <ItemsControl ItemsSource="{Binding Assets}"
+                            IsVisible="{Binding HasAssets}" Margin="8,6">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="Stretch" />
+                    <WrapPanel Orientation="Horizontal"/>
                   </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Border Width="120" Height="105" Margin="4" CornerRadius="6" Background="#1C2430" BorderBrush="#232C38" BorderThickness="1" Padding="4" DoubleTapped="OnAssetDoubleTapped" Cursor="Hand">
-                      <ToolTip.Tip>Double-click to add to Playhead</ToolTip.Tip>
-                      <Grid RowDefinitions="65,Auto,Auto">
-                        <!-- Thumbnail -->
-                        <Border Grid.Row="0" CornerRadius="4" Background="#0D1117" ClipToBounds="True">
+                    <Border Width="122" Height="110" Margin="4" CornerRadius="8"
+                            Background="#18181b" BorderBrush="#27272a" BorderThickness="1"
+                            Padding="4" DoubleTapped="OnAssetDoubleTapped" Cursor="Hand">
+                      <ToolTip.Tip>Double-click to add to timeline</ToolTip.Tip>
+                      <Grid RowDefinitions="64,Auto,Auto">
+                        <Border Grid.Row="0" CornerRadius="6" Background="#09090b" ClipToBounds="True">
                           <Grid>
-                            <TextBlock Text="{Binding Symbol}" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <Border Background="#A0000000" CornerRadius="3" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="3" Padding="3,1">
-                              <TextBlock Text="{Binding Duration}" Foreground="#F4F8FC" FontSize="8" FontFamily="Consolas,Menlo,monospace"/>
+                            <TextBlock Text="{Binding Symbol}" FontSize="24"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#94a3b8"/>
+                            <Border Background="#A0000000" CornerRadius="4"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Margin="4" Padding="4,2">
+                              <TextBlock Text="{Binding Duration}" Foreground="#f8fafc"
+                                         FontSize="9" FontFamily="Consolas,Menlo,monospace"/>
                             </Border>
                           </Grid>
                         </Border>
-                        <TextBlock Grid.Row="1" Text="{Binding Name}" Foreground="#D7E3F0" FontSize="10" TextTrimming="CharacterEllipsis" Margin="2,4,2,0"/>
-                        <TextBlock Grid.Row="2" Text="{Binding Type}" Foreground="#5C6A7C" FontSize="8" Margin="2,1,2,0"/>
+                        <TextBlock Grid.Row="1" Text="{Binding Name}" Foreground="#e2e8f0"
+                                   FontSize="11" TextTrimming="CharacterEllipsis" Margin="2,4,2,0"/>
+                        <TextBlock Grid.Row="2" Text="{Binding Type}" Foreground="#64748b"
+                                   FontSize="10" Margin="2,1,2,0"/>
                       </Grid>
                     </Border>
                   </DataTemplate>
@@ -304,44 +351,51 @@
           </ScrollViewer>
 
           <!-- Tab 2: Effects -->
-          <ScrollViewer IsVisible="{Binding IsEffectsTabActive}" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="10" Spacing="8">
-              <TextBlock Text="Video Effects" Foreground="#8B949E" FontSize="12" FontWeight="SemiBold"/>
-              <Border Height="40" Background="#1C2430" CornerRadius="4" BorderBrush="#232C38" BorderThickness="1" Padding="10,0" DoubleTapped="OnEffectDoubleTapped" Cursor="Hand">
+          <ScrollViewer IsVisible="{Binding IsEffectsTabActive}"
+                        HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12" Spacing="8">
+              <TextBlock Text="Video Effects" Foreground="#94a3b8" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+              <Border Height="40" Background="#121214" CornerRadius="6" BorderBrush="#27272a" BorderThickness="1"
+                      Padding="12,0" DoubleTapped="OnEffectDoubleTapped" Cursor="Hand">
                 <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Grid.Column="0" Text="🎨  Auto Color Grade" Foreground="#D7E3F0" FontSize="12" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="+" Foreground="#2986F6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="0" Text="🎨  Auto Color Grade" Foreground="#e2e8f0" FontSize="12" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="+" Foreground="#3b82f6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
                 </Grid>
               </Border>
-              <Border Height="40" Background="#1C2430" CornerRadius="4" BorderBrush="#232C38" BorderThickness="1" Padding="10,0" DoubleTapped="OnEffectDoubleTapped" Cursor="Hand">
+              <Border Height="40" Background="#121214" CornerRadius="6" BorderBrush="#27272a" BorderThickness="1"
+                      Padding="12,0" DoubleTapped="OnEffectDoubleTapped" Cursor="Hand">
                 <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Grid.Column="0" Text="🔳  Chroma Key (Green Screen)" Foreground="#D7E3F0" FontSize="12" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="+" Foreground="#2986F6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="0" Text="🔳  Chroma Key" Foreground="#e2e8f0" FontSize="12" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="+" Foreground="#3b82f6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
                 </Grid>
               </Border>
-              <Border Height="40" Background="#1C2430" CornerRadius="4" BorderBrush="#232C38" BorderThickness="1" Padding="10,0" DoubleTapped="OnEffectDoubleTapped" Cursor="Hand">
+              <Border Height="40" Background="#121214" CornerRadius="6" BorderBrush="#27272a" BorderThickness="1"
+                      Padding="12,0" DoubleTapped="OnEffectDoubleTapped" Cursor="Hand">
                 <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Grid.Column="0" Text="🔇  Noise Reduction" Foreground="#D7E3F0" FontSize="12" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="+" Foreground="#2986F6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="0" Text="🔇  Noise Reduction" Foreground="#e2e8f0" FontSize="12" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="+" Foreground="#3b82f6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
                 </Grid>
               </Border>
             </StackPanel>
           </ScrollViewer>
 
           <!-- Tab 3: Library -->
-          <ScrollViewer IsVisible="{Binding IsLibraryTabActive}" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="10" Spacing="8">
-              <TextBlock Text="Presets &amp; Overlays" Foreground="#8B949E" FontSize="12" FontWeight="SemiBold"/>
-              <Border Height="40" Background="#1C2430" CornerRadius="4" BorderBrush="#232C38" BorderThickness="1" Padding="10,0" DoubleTapped="OnLibraryDoubleTapped" Cursor="Hand">
+          <ScrollViewer IsVisible="{Binding IsLibraryTabActive}"
+                        HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12" Spacing="8">
+              <TextBlock Text="Presets &amp; Overlays" Foreground="#94a3b8" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+              <Border Height="40" Background="#121214" CornerRadius="6" BorderBrush="#27272a" BorderThickness="1"
+                      Padding="12,0" DoubleTapped="OnLibraryDoubleTapped" Cursor="Hand">
                 <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Grid.Column="0" Text="🎵  Ambient Music Loop" Foreground="#D7E3F0" FontSize="12" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="+" Foreground="#2986F6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="0" Text="🎵  Ambient Music Loop" Foreground="#e2e8f0" FontSize="12" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="+" Foreground="#3b82f6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
                 </Grid>
               </Border>
-              <Border Height="40" Background="#1C2430" CornerRadius="4" BorderBrush="#232C38" BorderThickness="1" Padding="10,0" DoubleTapped="OnLibraryDoubleTapped" Cursor="Hand">
+              <Border Height="40" Background="#121214" CornerRadius="6" BorderBrush="#27272a" BorderThickness="1"
+                      Padding="12,0" DoubleTapped="OnLibraryDoubleTapped" Cursor="Hand">
                 <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Grid.Column="0" Text="📝  Subtitle Overlay Template" Foreground="#D7E3F0" FontSize="12" VerticalAlignment="Center"/>
-                  <TextBlock Grid.Column="1" Text="+" Foreground="#2986F6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="0" Text="📝  Subtitle Overlay" Foreground="#e2e8f0" FontSize="12" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="+" Foreground="#3b82f6" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
                 </Grid>
               </Border>
             </StackPanel>
@@ -350,266 +404,361 @@
         </Grid>
       </Grid>
 
-      <!-- ── CENTER: Preview + Timeline ─────────────────────────────── -->
-      <Grid Grid.Column="1" RowDefinitions="*,42,36,*" Background="#0A0E13">
+      <!-- ── CENTER PANEL: Video preview + Transport ─────── -->
+      <Grid Grid.Column="1" RowDefinitions="*,44" Background="#09090b">
 
-        <!-- Preview monitor -->
+        <!-- Row 0: Video Preview -->
         <Border Grid.Row="0" Background="#000000" ClipToBounds="True">
           <Grid>
-            <!-- When no clips are loaded, show this empty placeholder -->
-            <StackPanel Name="PreviewPlaceholder" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding !HasClips}">
-              <Border Width="60" Height="60" CornerRadius="30" Background="#111820"
-                      HorizontalAlignment="Center">
-                <TextBlock Text="▶" FontSize="26" Foreground="#2986F6"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Margin="3,0,0,0"/>
+            <!-- 3x3 Grid Overlay -->
+            <Grid ColumnDefinitions="*,1,*,1,*" RowDefinitions="*,1,*,1,*" IsHitTestVisible="False">
+               <Border Grid.Row="0" Grid.Column="1" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="0" Grid.Column="3" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="2" Grid.Column="1" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="2" Grid.Column="3" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="4" Grid.Column="1" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="4" Grid.Column="3" Background="#27272a" Opacity="0.3"/>
+
+               <Border Grid.Row="1" Grid.Column="0" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="1" Grid.Column="2" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="1" Grid.Column="4" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="3" Grid.Column="0" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="3" Grid.Column="2" Background="#27272a" Opacity="0.3"/>
+               <Border Grid.Row="3" Grid.Column="4" Background="#27272a" Opacity="0.3"/>
+            </Grid>
+
+            <!-- Sequence info strip at top-left -->
+            <Border Background="Transparent" HorizontalAlignment="Left" VerticalAlignment="Top"
+                    Margin="16,12" Padding="0" CornerRadius="0">
+              <TextBlock Text="Sequence 1  ·  1920×1080  ·  23.976 fps"
+                         Foreground="#64748b" FontSize="11" FontWeight="Medium"/>
+            </Border>
+            
+            <!-- Fit / Res buttons at top-right -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16,12" Spacing="4">
+              <Border BorderThickness="1" BorderBrush="#3f3f46" Background="#121214" Padding="8,4" CornerRadius="4">
+                <TextBlock Text="Fit" FontSize="11" Foreground="#64748b"/>
               </Border>
-              <TextBlock Text="No timeline loaded" Foreground="#3D4A5C" FontSize="12"
-                         HorizontalAlignment="Center"/>
+              <Border BorderThickness="1" BorderBrush="#3f3f46" Background="#121214" Padding="8,4" CornerRadius="4">
+                <TextBlock Text="1/2 Res" FontSize="11" Foreground="#64748b"/>
+              </Border>
+            </StackPanel>
+
+            <!-- No-timeline placeholder -->
+            <StackPanel Name="PreviewPlaceholder" HorizontalAlignment="Center"
+                        VerticalAlignment="Center" Spacing="12" IsVisible="{Binding !HasClips}">
+              <Border Width="64" Height="64" CornerRadius="8" Background="Transparent" BorderBrush="#27272a" BorderThickness="1"
+                      HorizontalAlignment="Center">
+                <TextBlock Text="📺" FontSize="24" Foreground="#3f3f46" Opacity="0.6"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
             </StackPanel>
             
-            <!-- Video frame rendering -->
+            <!-- Video frame -->
             <Image Name="PreviewImage" Stretch="Uniform" IsVisible="{Binding HasClips}"/>
+
+            <!-- AI Enhancing Chip -->
+            <Border Background="#1e1b4b" BorderBrush="#a855f7" BorderThickness="1" CornerRadius="16" Padding="12,6" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,50,20,0" IsVisible="{Binding AITyping}">
+               <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Ellipse Width="6" Height="6" Fill="#a855f7"/>
+                  <TextBlock Text="AI ENHANCING" Foreground="#a855f7" FontSize="10" FontWeight="Bold" LetterSpacing="1"/>
+               </StackPanel>
+            </Border>
+
           </Grid>
         </Border>
 
-        <!-- Transport bar -->
-        <Border Grid.Row="1" Background="#0D1117" BorderBrush="#1A212B"
-                BorderThickness="0,1,0,1">
+        <!-- Row 1: Transport bar -->
+        <Border Grid.Row="1" Background="#09090b" BorderBrush="#3f3f46"
+                BorderThickness="0,1,0,0">
           <Grid ColumnDefinitions="160,*,160" Margin="12,0">
             <TextBlock Grid.Column="0" Name="TimecodeText" Text="{Binding TimeCode}"
-                       Foreground="#8B949E" FontFamily="Consolas,Menlo,monospace"
-                       FontSize="13" FontWeight="Medium" VerticalAlignment="Center"/>
+                       Foreground="#3b82f6" FontFamily="Consolas,Menlo,monospace"
+                       FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
-              <Button Classes="transport" Name="BtnToStart"    ToolTip.Tip="Go to start">⏮</Button>
-              <Button Classes="transport" Name="BtnStepBack"   ToolTip.Tip="Step back">⏪</Button>
-              <Border Width="34" Height="34" CornerRadius="17" Background="#1C2430">
+              <Button Classes="transport" Name="BtnToStart"  ToolTip.Tip="Go to start">⏮</Button>
+              <Border Width="40" Height="40" CornerRadius="20" Background="#f8fafc">
                 <Button Classes="transport" Name="BtnPlayPause" ToolTip.Tip="Play / Pause"
-                        Background="Transparent" BorderBrush="Transparent"
+                        Background="Transparent" BorderBrush="Transparent" Foreground="#09090b"
                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Content="{Binding PlayPauseIcon}"></Button>
+                        Content="{Binding PlayPauseIcon}"/>
               </Border>
-              <Button Classes="transport" Name="BtnStepFwd"  ToolTip.Tip="Step forward">⏩</Button>
-              <Button Classes="transport" Name="BtnToEnd"    ToolTip.Tip="Go to end">⏭</Button>
+              <Button Classes="transport" Name="BtnToEnd"   ToolTip.Tip="Go to end">⏭</Button>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10"
                         HorizontalAlignment="Right" VerticalAlignment="Center">
-              <TextBlock Text="1920×1080" Foreground="#5C6A7C" FontSize="11" FontWeight="SemiBold"/>
-              <TextBlock Text="30 fps" Foreground="#5C6A7C" FontSize="11" FontWeight="SemiBold"/>
+              <Button Classes="icon" ToolTip.Tip="Volume" FontSize="14">🔊</Button>
+              <Slider Width="60" Minimum="0" Maximum="100" Value="80" VerticalAlignment="Center"/>
+              <Button Classes="icon" ToolTip.Tip="Fullscreen" FontSize="14">⛶</Button>
             </StackPanel>
           </Grid>
         </Border>
 
-        <!-- Timeline toolbar -->
-        <Border Grid.Row="2" Background="#0D1117" BorderBrush="#1A212B"
-                BorderThickness="0,0,0,1">
+      </Grid>
+
+      <!-- ── RIGHT PANEL: AI Assistant ──────────────────────────────────── -->
+      <Grid Grid.Column="2" RowDefinitions="44,*,Auto"
+            Background="#09090b">
+        <Border Grid.RowSpan="3" BorderBrush="#3f3f46" BorderThickness="1,0,0,0"/>
+
+        <!-- Tab bar -->
+        <Border Grid.Row="0" Background="#09090b" BorderBrush="#3f3f46"
+                BorderThickness="0,0,0,1" Padding="16,0">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Stretch">
+            <RadioButton Classes="tab" GroupName="AITab" Content="Assistant"
+                         IsChecked="{Binding IsAssistantTabActive, Mode=OneWay}" Name="TabAssistant"/>
+            <RadioButton Classes="tab" GroupName="AITab" Content="MCP Activity"
+                         IsChecked="{Binding IsMcpTabActive, Mode=OneWay}" Name="TabMcp"/>
+          </StackPanel>
+        </Border>
+
+        <!-- Chat (Assistant tab) -->
+        <Grid Grid.Row="1" IsVisible="{Binding IsAssistantTabActive}">
+          <Grid RowDefinitions="*,Auto">
+            <ScrollViewer Grid.Row="0" Name="ChatScrollViewer"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+              <StackPanel Margin="0,8,0,0">
+                <ItemsControl ItemsSource="{Binding AIChatMessages}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border CornerRadius="12" Margin="12,6" Padding="12,10"
+                              MaxWidth="260"
+                              HorizontalAlignment="{Binding Alignment}"
+                              Background="{Binding BackgroundHex}">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="{Binding Text}"
+                                     Foreground="{Binding ForegroundHex}"
+                                     FontSize="13" TextWrapping="Wrap" LineHeight="18"/>
+                          <TextBlock Text="{Binding Time}" Foreground="#64748b"
+                                     FontSize="10" HorizontalAlignment="Right"/>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Typing indicator -->
+                <Border CornerRadius="12" Background="#1e1e24" Padding="12,10"
+                        Margin="12,6" HorizontalAlignment="Left"
+                        IsVisible="{Binding AITyping}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Ellipse Width="6" Height="6" Fill="#3b82f6"/>
+                    <TextBlock Text="Lumos AI is editing…" Foreground="#94a3b8"
+                               FontSize="12" FontStyle="Italic"/>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+
+            <!-- Quick action chips -->
+            <StackPanel Grid.Row="1" Spacing="8" Margin="12,8">
+              <Button Classes="chip" Name="ChipSilences">✂  Remove silences</Button>
+              <Button Classes="chip" Name="ChipColorGrade">🎨  Auto color grade</Button>
+              <Button Classes="chip" Name="ChipCaptions">📝  Generate captions</Button>
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Left"
+                          Spacing="6" Margin="4,4,0,0">
+                <Ellipse Width="6" Height="6" Fill="#10b981" VerticalAlignment="Center"/>
+                <TextBlock Text="MCP Connected" Foreground="#64748b" FontSize="11"/>
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </Grid>
+
+        <!-- MCP Logs (MCP Activity tab) -->
+        <ScrollViewer Grid.Row="1" IsVisible="{Binding IsMcpTabActive}"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding McpActivityLogs}" Margin="16">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" Foreground="#10b981"
+                           FontFamily="Consolas,Menlo,monospace" FontSize="11"
+                           Margin="0,3" TextWrapping="Wrap"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+
+        <!-- AI Chat input -->
+        <Border Grid.Row="2" Background="#09090b" BorderBrush="#3f3f46"
+                BorderThickness="0,1,0,0" Padding="12,10">
           <Grid ColumnDefinitions="*,Auto">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" Margin="8,0" VerticalAlignment="Center">
-              <Button Classes="icon" Name="ToolPointer"  ToolTip.Tip="Pointer (V)" Foreground="#2986F6">↖</Button>
-              <Button Classes="icon" Name="ToolRazor"    ToolTip.Tip="Razor (C)">✂</Button>
-              <Button Classes="icon" Name="ToolSlip"     ToolTip.Tip="Slip trim">⇔</Button>
-              <Button Classes="icon" Name="ToolLink"     ToolTip.Tip="Link clips">🔗</Button>
-              <Button Classes="icon" Name="ToolMagnet"   ToolTip.Tip="Toggle snapping" Foreground="#2986F6">⊡</Button>
-              <Border Width="1" Height="16" Background="#232C38" Margin="4,0"/>
-              <TextBlock Text="Actions:" Foreground="#5C6A7C" FontSize="11" VerticalAlignment="Center" Margin="4,0"/>
-              <Button Classes="secondary" Name="BtnSplitAction" Content="Split" Padding="6,2" Height="22" FontSize="11" Margin="2,0"/>
-              <Button Classes="secondary" Name="BtnDeleteAction" Content="Delete" Padding="6,2" Height="22" FontSize="11" Margin="2,0"/>
-            </StackPanel>
+            <Border Grid.Column="0" Background="#121214" CornerRadius="12"
+                    BorderBrush="#27272a" BorderThickness="1">
+              <TextBox Name="AIChatInput"
+                       Background="Transparent" BorderBrush="Transparent"
+                       Padding="12,9"
+                       Watermark="Ask AI to edit, analyze, or generate…"
+                       Foreground="#f8fafc" CaretBrush="#3b82f6"
+                       FontSize="13" AcceptsReturn="False" TextWrapping="Wrap"/>
+            </Border>
+            <Button Grid.Column="1" Classes="primary" Name="BtnSendAI"
+                    Width="38" Height="38" Padding="0" CornerRadius="19"
+                    Margin="8,0,0,0"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center">
+              <TextBlock Text="↑" FontSize="18" FontWeight="Bold"/>
+            </Button>
+          </Grid>
+        </Border>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,12,0">
-              <TextBlock Text="Zoom" Foreground="#5C6A7C" FontSize="11" VerticalAlignment="Center"/>
-              <Slider Name="ZoomSlider" Width="100" Minimum="1.0" Maximum="15.0" Value="{Binding ZoomScale, Mode=TwoWay}"
-                      VerticalAlignment="Center"/>
+      </Grid>
+    </Grid>
+
+    <!-- ══ BOTTOM TIMELINE (FULL WIDTH) ════════════════════════════════════ -->
+    <Grid Grid.Row="2" RowDefinitions="40,*" Background="#0a0a0c">
+        <Border Grid.Row="0" Background="#09090b" BorderBrush="#3f3f46"
+                BorderThickness="0,1,0,1">
+          <Grid ColumnDefinitions="*,Auto" Margin="10,0">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4"
+                        VerticalAlignment="Center">
+              <Button Classes="icon" Name="ToolPointer" ToolTip.Tip="Pointer (V)" Foreground="#3b82f6" FontSize="15">↖</Button>
+              <Button Classes="icon" Name="ToolRazor"   ToolTip.Tip="Razor (C)" FontSize="15">✂</Button>
+              <Button Classes="icon" Name="ToolSlip"    ToolTip.Tip="Slip trim" FontSize="15">[ ]</Button>
+              <Border Classes="vsep" Margin="8,8"/>
+              <Button Classes="icon" Name="ToolMagnet"  ToolTip.Tip="Toggle snapping" Foreground="#3b82f6" FontSize="15">⊡</Button>
+              <Button Classes="icon" Name="ToolLink"    ToolTip.Tip="Link clips" FontSize="15">🔗</Button>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                        VerticalAlignment="Center" Margin="0,0,12,0">
+              <TextBlock Text="Zoom" Foreground="#64748b" FontSize="12" VerticalAlignment="Center"/>
+              <Slider Name="ZoomSlider" Width="100" Minimum="1.0" Maximum="15.0"
+                      Value="{Binding ZoomScale, Mode=TwoWay}" VerticalAlignment="Center"/>
             </StackPanel>
           </Grid>
         </Border>
 
-        <!-- Timeline tracks area -->
-        <Grid Grid.Row="3" ColumnDefinitions="90,*">
-
-          <!-- Track headers column (static on left) -->
-          <Border Grid.Column="0" Background="#0D1117" BorderBrush="#1A212B"
-                  BorderThickness="0,0,1,0" ZIndex="2">
-            <StackPanel Margin="0,20,0,0">
-              <!-- V2 header -->
-              <Border Height="56" BorderBrush="#1A212B" BorderThickness="0,0,0,1"
-                      Padding="8,0" Background="#161C26">
-                <StackPanel Spacing="2" VerticalAlignment="Center">
-                  <TextBlock Text="V2" Foreground="#C9D1D9" FontSize="12" FontWeight="SemiBold"/>
-                  <TextBlock Classes="track-type" Text="VIDEO"/>
-                </StackPanel>
-              </Border>
-              <!-- V1 header -->
-              <Border Height="56" BorderBrush="#1A212B" BorderThickness="0,0,0,1"
-                      Padding="8,0" Background="#1C2430">
-                <StackPanel Spacing="2" VerticalAlignment="Center">
-                  <TextBlock Text="V1" Foreground="#C9D1D9" FontSize="12" FontWeight="SemiBold"/>
-                  <TextBlock Classes="track-type" Text="VIDEO"/>
-                </StackPanel>
-              </Border>
-              <!-- A1 header -->
-              <Border Height="56" BorderBrush="#1A212B" BorderThickness="0,0,0,1"
-                      Padding="8,0" Background="#1C2430">
-                <StackPanel Spacing="2" VerticalAlignment="Center">
-                  <TextBlock Text="A1" Foreground="#C9D1D9" FontSize="12" FontWeight="SemiBold"/>
-                  <TextBlock Classes="track-type" Text="AUDIO"/>
-                </StackPanel>
-              </Border>
-              <!-- A2 header -->
-              <Border Height="56" BorderBrush="#1A212B" BorderThickness="0,0,0,1"
-                      Padding="8,0" Background="#161C26">
-                <StackPanel Spacing="2" VerticalAlignment="Center">
-                  <TextBlock Text="A2" Foreground="#C9D1D9" FontSize="12" FontWeight="SemiBold"/>
-                  <TextBlock Classes="track-type" Text="AUDIO"/>
-                </StackPanel>
-              </Border>
+        <Grid Grid.Row="1" ColumnDefinitions="120,*" Background="#0a0a0c">
+          <!-- Track headers (static left column) -->
+          <Border Grid.Column="0" Background="#18181b" BorderBrush="#3f3f46"
+                  BorderThickness="0,0,1,0" ZIndex="2"
+                  BoxShadow="4 0 12 0 #40000000">
+            <StackPanel Margin="0,28,0,0">
+              <ItemsControl ItemsSource="{Binding Tracks}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Height="56" BorderBrush="#27272a" BorderThickness="0,0,0,1"
+                            Padding="12,0" Background="#18181b">
+                      <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Grid.Column="0" Text="{Binding Id}" Foreground="#f8fafc"
+                                     FontSize="11" FontWeight="Bold"/>
+                          <Border Grid.Column="1" Width="10" Height="10" BorderBrush="#64748b" BorderThickness="1" CornerRadius="2">
+                             <Ellipse Width="4" Height="4" Fill="#64748b" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                          </Border>
+                        </Grid>
+                        <TextBlock Classes="track-type" Text="{Binding TypeLabel}"/>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
             </StackPanel>
           </Border>
 
-          <!-- Scrollable Track Content Area -->
-          <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Hidden" Name="TimelineScrollViewer">
-            <Grid Width="{Binding TimelineWidthPixels}" Background="#0A0E13">
-              <Grid RowDefinitions="20,*">
+          <!-- Scrollable track content -->
+          <ScrollViewer Grid.Column="1"
+                        HorizontalScrollBarVisibility="Auto"
+                        VerticalScrollBarVisibility="Hidden"
+                        Name="TimelineScrollViewer">
+            <Grid Width="{Binding TimelineWidthPixels}" HorizontalAlignment="Left" Background="#0a0a0c">
+              <Grid RowDefinitions="28,*">
 
-                <!-- Ruler strip — dynamic ticks via TimelineRulerControl -->
-                <Border Grid.Row="0" Height="20" Background="#0A0E13" BorderBrush="#1A212B" BorderThickness="0,0,0,1" Name="TimelineRulerBorder" Cursor="SizeWestEast">
-                  <controls:TimelineRulerControl Name="RulerControl" Height="20"
+                <!-- Ruler -->
+                <Border Grid.Row="0" Height="28" Background="#09090b"
+                        BorderBrush="#3f3f46" BorderThickness="0,0,0,1"
+                        Name="TimelineRulerBorder" Cursor="SizeWestEast">
+                  <controls:TimelineRulerControl Name="RulerControl" Height="28"
                     ZoomScale="{Binding ZoomScale}"
                     Fps="{Binding Fps}"
                     HorizontalAlignment="Stretch"/>
                 </Border>
 
-                <!-- Track Rows stacked -->
-                <Grid Grid.Row="1" Height="224" Name="TimelineTracksContainer">
-                  
-                  <!-- Background grid rows -->
-                  <StackPanel>
-                    <!-- V2 Track background -->
-                    <Border Height="56" Background="#090D12" BorderBrush="#1A212B" BorderThickness="0,0,0,1" Name="TrackLaneV2"/>
-                    <!-- V1 Track background -->
-                    <Border Height="56" Background="#090D12" BorderBrush="#1A212B" BorderThickness="0,0,0,1" Name="TrackLaneV1"/>
-                    <!-- A1 Track background -->
-                    <Border Height="56" Background="#090D12" BorderBrush="#1A212B" BorderThickness="0,0,0,1" Name="TrackLaneA1"/>
-                    <!-- A2 Track background -->
-                    <Border Height="56" Background="#090D12" BorderBrush="#1A212B" BorderThickness="0,0,0,1" Name="TrackLaneA2"/>
-                  </StackPanel>
+                <!-- Track rows (dynamic) -->
+                <Grid Grid.Row="1" Name="TimelineTracksContainer">
+                  <ItemsControl ItemsSource="{Binding Tracks}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Grid Height="56">
+                          <Border Background="#18181b" Opacity="0.1" BorderBrush="#27272a" BorderThickness="0,0,0,1"/>
+                          <Canvas Background="Transparent" IsHitTestVisible="True">
+                            <ItemsControl ItemsSource="{Binding Clips}">
+                              <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                  <Canvas Height="56"/>
+                                </ItemsPanelTemplate>
+                              </ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                  <Border Height="52" Margin="0,2" CornerRadius="6"
+                                          Canvas.Left="{Binding Left}"
+                                          Width="{Binding Width}"
+                                          Cursor="Hand"
+                                          PointerPressed="OnClipPointerPressed"
+                                          BoxShadow="0 4 8 0 #60000000">
+                                    <Border CornerRadius="6"
+                                            BorderThickness="1,1,1,2"
+                                            ClipToBounds="True">
+                                      <Border.BorderBrush>
+                                        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                                          <GradientStop Color="#60a5fa" Offset="0"/>
+                                          <GradientStop Color="#1e3a8a" Offset="1"/>
+                                        </LinearGradientBrush>
+                                      </Border.BorderBrush>
+                                      <Border.Background>
+                                        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                                          <GradientStop Color="#3b82f6" Offset="0"/>
+                                          <GradientStop Color="#1e3a8a" Offset="1"/>
+                                        </LinearGradientBrush>
+                                      </Border.Background>
+                                      <Border.Opacity>0.85</Border.Opacity>
+                                      <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Orientation="Horizontal"
+                                                    VerticalAlignment="Top" Margin="8,4">
+                                          <TextBlock Text="{Binding Name}" Foreground="#f8fafc"
+                                                     FontSize="10" FontWeight="Medium"
+                                                     TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Effect>
+                                              <DropShadowEffect BlurRadius="2" Color="#000000" Opacity="0.8" OffsetX="0" OffsetY="1"/>
+                                            </TextBlock.Effect>
+                                          </TextBlock>
+                                        </StackPanel>
+                                        <Border Grid.Column="1" Background="#1e1b4b"
+                                                BorderBrush="#a855f7" BorderThickness="1"
+                                                CornerRadius="2" Margin="0,4,4,0"
+                                                Padding="4,1" VerticalAlignment="Top" IsVisible="{Binding IsAI}"
+                                                BoxShadow="0 2 4 0 #40000000">
+                                          <TextBlock Text="AI" Foreground="#a855f7"
+                                                     FontSize="8" FontWeight="Bold"/>
+                                        </Border>
+                                      </Grid>
+                                    </Border>
+                                  </Border>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </Canvas>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
 
-                  <!-- V2 Clips ItemsControl -->
-                  <Canvas Height="56" VerticalAlignment="Top" Margin="0,0,0,0" Background="Transparent" IsHitTestVisible="True">
-                    <ItemsControl ItemsSource="{Binding V2Clips}">
-                      <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                          <Canvas Height="56"/>
-                        </ItemsPanelTemplate>
-                      </ItemsControl.ItemsPanel>
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <Border Height="48" Margin="0,4" CornerRadius="6" Background="{Binding ColorHex}" BorderBrush="{Binding BorderHex}" BorderThickness="2" Canvas.Left="{Binding Left}" Width="{Binding Width}" Cursor="Hand" PointerPressed="OnClipPointerPressed">
-                            <Grid ColumnDefinitions="*,Auto">
-                              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
-                                <TextBlock Text="{Binding Symbol}" FontSize="12" Margin="0,0,4,0"/>
-                                <TextBlock Text="{Binding Name}" Foreground="#F4F8FC" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                              </StackPanel>
-                              <Border Grid.Column="1" Background="#30FFFFFF" CornerRadius="4" Margin="0,0,6,0" Padding="4,2" IsVisible="{Binding IsAI}">
-                                <TextBlock Text="AI" Foreground="#FFFFFF" FontSize="8" FontWeight="Bold"/>
-                              </Border>
-                            </Grid>
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                  <!-- Playhead -->
+                  <Canvas Background="Transparent" IsHitTestVisible="False"
+                          VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="10">
+                    <Border Canvas.Left="{Binding PlayheadLeft}" Margin="-1,0,0,0" Width="2" Height="280" Background="#ef4444" BoxShadow="0 0 10 2 #CCEF4444"/>
+                    <Path Fill="#ef4444" Data="M0,0 L16,0 L16,11 L8,16 L0,11 Z"
+                             Canvas.Left="{Binding PlayheadHandleLeft}" Margin="-7,0,0,0">
+                      <Path.Effect>
+                        <DropShadowEffect BlurRadius="6" Color="#ef4444" Opacity="0.8" OffsetX="0" OffsetY="2"/>
+                      </Path.Effect>
+                    </Path>
                   </Canvas>
-
-                  <!-- V1 Clips ItemsControl -->
-                  <Canvas Height="56" VerticalAlignment="Top" Margin="0,56,0,0" Background="Transparent" IsHitTestVisible="True">
-                    <ItemsControl ItemsSource="{Binding V1Clips}">
-                      <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                          <Canvas Height="56"/>
-                        </ItemsPanelTemplate>
-                      </ItemsControl.ItemsPanel>
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <Border Height="48" Margin="0,4" CornerRadius="6" Background="{Binding ColorHex}" BorderBrush="{Binding BorderHex}" BorderThickness="2" Canvas.Left="{Binding Left}" Width="{Binding Width}" Cursor="Hand" PointerPressed="OnClipPointerPressed">
-                            <Grid ColumnDefinitions="*,Auto">
-                              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
-                                <TextBlock Text="{Binding Symbol}" FontSize="12" Margin="0,0,4,0"/>
-                                <TextBlock Text="{Binding Name}" Foreground="#F4F8FC" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                              </StackPanel>
-                              <Border Grid.Column="1" Background="#30FFFFFF" CornerRadius="4" Margin="0,0,6,0" Padding="4,2" IsVisible="{Binding IsAI}">
-                                <TextBlock Text="AI" Foreground="#FFFFFF" FontSize="8" FontWeight="Bold"/>
-                              </Border>
-                            </Grid>
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </Canvas>
-
-                  <!-- A1 Clips ItemsControl -->
-                  <Canvas Height="56" VerticalAlignment="Top" Margin="0,112,0,0" Background="Transparent" IsHitTestVisible="True">
-                    <ItemsControl ItemsSource="{Binding A1Clips}">
-                      <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                          <Canvas Height="56"/>
-                        </ItemsPanelTemplate>
-                      </ItemsControl.ItemsPanel>
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <Border Height="48" Margin="0,4" CornerRadius="6" Background="{Binding ColorHex}" BorderBrush="{Binding BorderHex}" BorderThickness="2" Canvas.Left="{Binding Left}" Width="{Binding Width}" Cursor="Hand" PointerPressed="OnClipPointerPressed">
-                            <Grid ColumnDefinitions="*,Auto">
-                              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
-                                <TextBlock Text="{Binding Symbol}" FontSize="12" Margin="0,0,4,0"/>
-                                <TextBlock Text="{Binding Name}" Foreground="#F4F8FC" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                              </StackPanel>
-                              <Border Grid.Column="1" Background="#30FFFFFF" CornerRadius="4" Margin="0,0,6,0" Padding="4,2" IsVisible="{Binding IsAI}">
-                                <TextBlock Text="AI" Foreground="#FFFFFF" FontSize="8" FontWeight="Bold"/>
-                              </Border>
-                            </Grid>
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </Canvas>
-
-                  <!-- A2 Clips ItemsControl -->
-                  <Canvas Height="56" VerticalAlignment="Top" Margin="0,168,0,0" Background="Transparent" IsHitTestVisible="True">
-                    <ItemsControl ItemsSource="{Binding A2Clips}">
-                      <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                          <Canvas Height="56"/>
-                        </ItemsPanelTemplate>
-                      </ItemsControl.ItemsPanel>
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <Border Height="48" Margin="0,4" CornerRadius="6" Background="{Binding ColorHex}" BorderBrush="{Binding BorderHex}" BorderThickness="2" Canvas.Left="{Binding Left}" Width="{Binding Width}" Cursor="Hand" PointerPressed="OnClipPointerPressed">
-                            <Grid ColumnDefinitions="*,Auto">
-                              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
-                                <TextBlock Text="{Binding Symbol}" FontSize="12" Margin="0,0,4,0"/>
-                                <TextBlock Text="{Binding Name}" Foreground="#F4F8FC" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                              </StackPanel>
-                              <Border Grid.Column="1" Background="#30FFFFFF" CornerRadius="4" Margin="0,0,6,0" Padding="4,2" IsVisible="{Binding IsAI}">
-                                <TextBlock Text="AI" Foreground="#FFFFFF" FontSize="8" FontWeight="Bold"/>
-                              </Border>
-                            </Grid>
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </Canvas>
-
-                  <!-- Playhead layer (spans whole container, doesn't intercept clicks) -->
-                  <Canvas Background="Transparent" IsHitTestVisible="False" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
-                    <!-- vertical line -->
-                    <Rectangle Fill="#4FC3F7" Width="2" Height="224" Canvas.Left="{Binding PlayheadLeft}"/>
-                    <!-- handle triangle -->
-                    <Polygon Points="0,0 12,0 6,10" Fill="#4FC3F7" Canvas.Left="{Binding PlayheadHandleLeft}"/>
-                  </Canvas>
-
                 </Grid>
 
               </Grid>
@@ -617,104 +766,8 @@
           </ScrollViewer>
 
         </Grid>
-
-      </Grid>
-
-      <!-- ── RIGHT PANEL: AI Assistant ──────────────────────────────── -->
-      <Grid Grid.Column="2" RowDefinitions="38,*,Auto" Background="#161C26">
-
-        <!-- Tab bar -->
-        <Border Grid.Row="0" Background="#0D1117" BorderBrush="#1A212B"
-                BorderThickness="0,0,0,1" Padding="14,0">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Stretch">
-            <RadioButton Classes="tab" GroupName="AITab" Content="Assistant" IsChecked="{Binding IsAssistantTabActive, Mode=OneWay}" Name="TabAssistant"/>
-            <RadioButton Classes="tab" GroupName="AITab" Content="MCP Activity" IsChecked="{Binding IsMcpTabActive, Mode=OneWay}" Name="TabMcp"/>
-          </StackPanel>
-        </Border>
-
-        <!-- Chat / empty state (Assistant Tab) -->
-        <Grid Grid.Row="1" IsVisible="{Binding IsAssistantTabActive}">
-          <Grid RowDefinitions="*,Auto">
-            <ScrollViewer Grid.Row="0" Name="ChatScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-              <StackPanel>
-                <!-- Messages -->
-                <ItemsControl ItemsSource="{Binding AIChatMessages}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Border CornerRadius="8" Margin="8,4" Padding="10,8" MaxWidth="250"
-                              HorizontalAlignment="{Binding Alignment}"
-                              Background="{Binding BackgroundHex}">
-                        <StackPanel Spacing="4">
-                          <TextBlock Text="{Binding Text}" Foreground="{Binding ForegroundHex}" FontSize="12" TextWrapping="Wrap"/>
-                          <TextBlock Text="{Binding Time}" Foreground="#5C6A7C" FontSize="9" HorizontalAlignment="Right"/>
-                        </StackPanel>
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <!-- AI typing indicator -->
-                <Border CornerRadius="8" Background="#1C2430" Padding="10,8" Margin="8,4" HorizontalAlignment="Left" IsVisible="{Binding AITyping}">
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Ellipse Width="6" Height="6" Fill="#4FC3F7"/>
-                    <TextBlock Text="Lumos AI is editing..." Foreground="#5C6A7C" FontSize="11" FontStyle="Italic"/>
-                  </StackPanel>
-                </Border>
-              </StackPanel>
-            </ScrollViewer>
-
-            <!-- Quick Action Chips -->
-            <StackPanel Grid.Row="1" Spacing="6" Margin="10,8">
-              <Button Classes="chip" Name="ChipSilences">✂  Remove silences</Button>
-              <Button Classes="chip" Name="ChipColorGrade">🎨  Auto color grade</Button>
-              <Button Classes="chip" Name="ChipCaptions">📝  Generate captions</Button>
-              <!-- MCP connected indicator -->
-              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6" Margin="0,4,0,0">
-                <Ellipse Width="6" Height="6" Fill="#4ADE80" VerticalAlignment="Center"/>
-                <TextBlock Text="MCP Connected" Foreground="#5C6A7C" FontSize="11"/>
-              </StackPanel>
-            </StackPanel>
-          </Grid>
-        </Grid>
-
-        <!-- MCP Logs (MCP Activity Tab) -->
-        <ScrollViewer Grid.Row="1" IsVisible="{Binding IsMcpTabActive}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-          <ItemsControl ItemsSource="{Binding McpActivityLogs}" Margin="12">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding}" Foreground="#4ADE80" FontFamily="Consolas,Menlo,monospace" FontSize="11" Margin="0,2" TextWrapping="Wrap"/>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </ScrollViewer>
-
-        <!-- Input area -->
-        <Border Grid.Row="2" Background="#0D1117" BorderBrush="#1A212B"
-                BorderThickness="0,1,0,0" Padding="10,8">
-          <Grid ColumnDefinitions="*,Auto">
-            <Border Grid.Column="0" Background="#11161D" CornerRadius="8"
-                    BorderBrush="#232C38" BorderThickness="1">
-              <TextBox Name="AIChatInput"
-                       Background="Transparent" BorderBrush="Transparent"
-                       Padding="10,7"
-                       Watermark="Ask AI to edit, analyze, or generate..."
-                       Foreground="#C9D1D9" CaretBrush="#2986F6"
-                       FontSize="12"
-                       AcceptsReturn="False"
-                       TextWrapping="Wrap"/>
-            </Border>
-            <Button Grid.Column="1" Classes="primary" Name="BtnSendAI"
-                    Width="34" Height="34" Padding="0" CornerRadius="17"
-                    Margin="6,0,0,0"
-                    HorizontalContentAlignment="Center"
-                    VerticalContentAlignment="Center">
-              <TextBlock Text="↑" FontSize="16" FontWeight="Bold"/>
-            </Button>
-          </Grid>
-        </Border>
-
-      </Grid>
-
     </Grid>
+
   </Grid>
+
 </Window>
