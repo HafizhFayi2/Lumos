@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Lumos.Desktop.ViewModels"
+        xmlns:controls="using:Lumos.Desktop.Controls"
         x:Class="Lumos.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="Lumos"
@@ -474,19 +475,12 @@
             <Grid Width="{Binding TimelineWidthPixels}" Background="#0A0E13">
               <Grid RowDefinitions="20,*">
 
-                <!-- Ruler strip -->
-                <Border Grid.Row="0" Height="20" Background="#0A0E13" BorderBrush="#1A212B" BorderThickness="0,0,0,1" Name="TimelineRulerBorder" Cursor="SizeWE">
-                  <Canvas Height="20" HorizontalAlignment="Stretch">
-                    <!-- Ticks drawn at regular intervals -->
-                    <TextBlock Text="00:00:00" Foreground="#5C6A7C" FontSize="9" Canvas.Left="0"/>
-                    <TextBlock Text="00:00:05" Foreground="#5C6A7C" FontSize="9" Canvas.Left="600"/>
-                    <TextBlock Text="00:00:10" Foreground="#5C6A7C" FontSize="9" Canvas.Left="1200"/>
-                    <TextBlock Text="00:00:15" Foreground="#5C6A7C" FontSize="9" Canvas.Left="1800"/>
-                    <TextBlock Text="00:00:20" Foreground="#5C6A7C" FontSize="9" Canvas.Left="2400"/>
-                    <TextBlock Text="00:00:30" Foreground="#5C6A7C" FontSize="9" Canvas.Left="3600"/>
-                    <TextBlock Text="00:00:40" Foreground="#5C6A7C" FontSize="9" Canvas.Left="4800"/>
-                    <TextBlock Text="00:00:50" Foreground="#5C6A7C" FontSize="9" Canvas.Left="6000"/>
-                  </Canvas>
+                <!-- Ruler strip — dynamic ticks via TimelineRulerControl -->
+                <Border Grid.Row="0" Height="20" Background="#0A0E13" BorderBrush="#1A212B" BorderThickness="0,0,0,1" Name="TimelineRulerBorder" Cursor="SizeWestEast">
+                  <controls:TimelineRulerControl Name="RulerControl" Height="20"
+                    ZoomScale="{Binding ZoomScale}"
+                    Fps="{Binding Fps}"
+                    HorizontalAlignment="Stretch"/>
                 </Border>
 
                 <!-- Track Rows stacked -->

@@ -57,7 +57,7 @@ public class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private double _zoomScale = 4.0; // Defaults.PixelsPerFrame
+    private double _zoomScale = 4.0;
     public double ZoomScale
     {
         get => _zoomScale;
@@ -74,6 +74,13 @@ public class MainWindowViewModel : ViewModelBase
                 foreach (var clip in A2Clips) clip.UpdateZoom(value);
             }
         }
+    }
+
+    private int _fps = 30;
+    public int Fps
+    {
+        get => _fps;
+        set => SetProperty(ref _fps, value);
     }
 
     public double PlayheadLeft => PlayheadFrame * ZoomScale;
@@ -234,6 +241,7 @@ public class MainWindowViewModel : ViewModelBase
         var timeline = state.Timeline.Timeline;
         if (timeline != null)
         {
+            Fps = timeline.Fps > 0 ? timeline.Fps : 30;
             TotalFrames = timeline.TotalFrames;
             UpdateTrackClips("V2", V2Clips, timeline);
             UpdateTrackClips("V1", V1Clips, timeline);

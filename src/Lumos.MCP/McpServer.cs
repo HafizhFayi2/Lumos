@@ -1,9 +1,11 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.Server;
 using Lumos.Application;
+using Lumos.Application.Assets;
 using Lumos.Application.Commands;
 using Lumos.Application.State;
 using Lumos.MCP.Tools;
@@ -20,14 +22,16 @@ public sealed class McpServer : IDisposable
     private readonly EditorStore _store;
     private readonly CommandQueue _queue;
     private readonly IMediaExporter _exporter;
+    private readonly AssetManager _assets;
 
     public bool IsRunning { get; private set; }
 
-    public McpServer(EditorStore store, CommandQueue queue, IMediaExporter exporter)
+    public McpServer(EditorStore store, CommandQueue queue, IMediaExporter exporter, AssetManager assets)
     {
         _store    = store;
         _queue    = queue;
         _exporter = exporter;
+        _assets   = assets;
     }
 
     public async Task StartAsync(CancellationToken ct = default)
@@ -40,6 +44,7 @@ public sealed class McpServer : IDisposable
                 services.AddSingleton(_store);
                 services.AddSingleton(_queue);
                 services.AddSingleton(_exporter);
+                services.AddSingleton(_assets);
                 services.AddMcpServer(opts =>
                 {
                     opts.ServerInfo = new() { Name = "lumos-desktop", Version = "1.0.0" };
@@ -47,11 +52,16 @@ public sealed class McpServer : IDisposable
                 .WithHttpTransport()
                 .WithTools<TimelineTools>()
                 .WithTools<AssetTools>()
-                .WithTools<ExportTools>();
+                .WithTools<ExportTools>()
+                .WithTools<CaptionTools>();
             })
             .ConfigureWebHostDefaults(web =>
             {
                 web.UseUrls($"http://localhost:{Port}");
+                web.Configure(app => 
+                {
+                    // Empty configuration just to satisfy GenericWebHostService.
+                });
             });
 
         _host = builder.Build();
@@ -74,16 +84,17 @@ public sealed class McpServer : IDisposable
         var sp = scope.ServiceProvider;
         return toolName switch
         {
-            ToolDefinitions.InspectTimeline => await sp.GetRequiredService<TimelineTools>().InspectTimelineAsync(ct),
-            ToolDefinitions.SplitClip       => await sp.GetRequiredService<TimelineTools>().SplitClipAsync(args, ct),
-            ToolDefinitions.TrimClip        => await sp.GetRequiredService<TimelineTools>().TrimClipAsync(args, ct),
-            ToolDefinitions.MoveClip        => await sp.GetRequiredService<TimelineTools>().MoveClipAsync(args, ct),
-            ToolDefinitions.RemoveClips     => await sp.GetRequiredService<TimelineTools>().RemoveClipsAsync(args, ct),
-            ToolDefinitions.RippleDelete    => await sp.GetRequiredService<TimelineTools>().RippleDeleteAsync(args, ct),
-            ToolDefinitions.ListAssets      => await sp.GetRequiredService<AssetTools>().ListAssetsAsync(ct),
-            ToolDefinitions.ImportMedia     => await sp.GetRequiredService<AssetTools>().ImportMediaAsync(args, ct),
-            ToolDefinitions.ExportVideo     => await sp.GetRequiredService<ExportTools>().ExportVideoAsync(args, ct),
-            _                               => $"{{\"error\":\"unknown tool: {toolName}\"}}",
+            ToolDefinitions.InspectTimeline  => await sp.GetRequiredService<TimelineTools>().InspectTimelineAsync(ct),
+            ToolDefinitions.SplitClip        => await sp.GetRequiredService<TimelineTools>().SplitClipAsync(args, ct),
+            ToolDefinitions.TrimClip         => await sp.GetRequiredService<TimelineTools>().TrimClipAsync(args, ct),
+            ToolDefinitions.MoveClip         => await sp.GetRequiredService<TimelineTools>().MoveClipAsync(args, ct),
+            ToolDefinitions.RemoveClips      => await sp.GetRequiredService<TimelineTools>().RemoveClipsAsync(args, ct),
+            ToolDefinitions.RippleDelete     => await sp.GetRequiredService<TimelineTools>().RippleDeleteAsync(args, ct),
+            ToolDefinitions.ListAssets       => await sp.GetRequiredService<AssetTools>().ListAssetsAsync(ct),
+            ToolDefinitions.ImportMedia      => await sp.GetRequiredService<AssetTools>().ImportMediaAsync(args, ct),
+            ToolDefinitions.ExportVideo      => await sp.GetRequiredService<ExportTools>().ExportVideoAsync(args, ct),
+            ToolDefinitions.GenerateCaptions => await sp.GetRequiredService<CaptionTools>().GenerateCaptionsAsync(args, ct),
+            _                                => $"{{\"error\":\"unknown tool: {toolName}\"}}",
         };
     }
 

@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -13,6 +14,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Lumos.Domain;
 using Lumos.Application.Commands;
+using Lumos.Desktop.Controls;
 using Lumos.Desktop.ViewModels;
 
 namespace Lumos.Desktop.Views;
@@ -70,6 +72,19 @@ public partial class MainWindow : Window
 
         var tracks = this.FindControl<Grid>("TimelineTracksContainer")!;
         tracks.PointerPressed += OnTracksPointerPressed;
+
+        // Sync ruler scroll offset when timeline scrollviewer scrolls
+        var scrollViewer = this.FindControl<ScrollViewer>("TimelineScrollViewer")!;
+        scrollViewer.ScrollChanged += OnTimelineScrollChanged;
+    }
+
+    private void OnTimelineScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        var rulerCtrl = this.FindControl<TimelineRulerControl>("RulerControl");
+        if (rulerCtrl != null && sender is ScrollViewer sv)
+        {
+            rulerCtrl.ScrollOffset = sv.Offset.X;
+        }
     }
 
     private void OnVideoEngineFrameComposited(int frame, byte[] pixelData)
@@ -360,7 +375,7 @@ public partial class MainWindow : Window
         }
         else if (query.Contains("caption") || query.Contains("subtitle") || query.Contains("teks"))
         {
-            GenerateCaptionsSimulated();
+            _ = GenerateCaptionsRealAsync();
             return "Speech-to-text transcription complete. Auto-captions have been added to the Subtitle track A2.";
         }
 
@@ -396,19 +411,13 @@ public partial class MainWindow : Window
         });
     }
 
-    private void OnChipCaptionsClicked(object? sender, RoutedEventArgs e)
+    private async void OnChipCaptionsClicked(object? sender, RoutedEventArgs e)
     {
         VM.AIChatMessages.Add(new ChatMessageViewModel("Generate captions", true));
         VM.AITyping = true;
-        Task.Delay(1000).ContinueWith(_ =>
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                VM.AITyping = false;
-                GenerateCaptionsSimulated();
-                VM.AIChatMessages.Add(new ChatMessageViewModel("Captions successfully generated and mapped onto track A2.", false));
-            });
-        });
+        await Task.Delay(1000);
+        VM.AITyping = false;
+        await GenerateCaptionsRealAsync();
     }
 
     private void RemoveSilencesSimulated()
@@ -436,18 +445,34 @@ public partial class MainWindow : Window
         VM.McpActivityLogs.Insert(0, "[MCP Tool] silence-remover: Split at frame " + splitPt);
     }
 
-    private async void GenerateCaptionsSimulated()
+    private async Task GenerateCaptionsRealAsync()
     {
-        string mockPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Auto_Captions.srt");
-        if (!File.Exists(mockPath))
+        var track = App.EditorStore.State.Timeline.Timeline.Tracks.FirstOrDefault(t => t.Id == "V1");
+        if (track == null || track.Clips.Count == 0)
         {
-            await File.WriteAllTextAsync(mockPath, "1\n00:00:01,000 --> 00:00:05,000\n[AI Captions Selected]");
+            VM.McpActivityLogs.Insert(0, "[MCP Error] generate_captions: No clips found on track V1.");
+            VM.AIChatMessages.Add(new ChatMessageViewModel("Please add a video clip to track V1 first to generate captions.", false));
+            return;
         }
-        var asset = await App.AssetManager.ImportAssetAsync(App.EditorStore.State.ProjectId, mockPath);
-        
-        // Add captions at frame 0 spanning 120 frames
-        var command = new AddClipsAsyncCommand(new[] { asset }, "A2", 0);
-        App.CommandQueue.Enqueue(command);
+        var clip = track.Clips.First();
+
+        var argsDict = new Dictionary<string, string> { { "source_clip_id", clip.Id } };
+        var jsonBytes = JsonSerializer.SerializeToUtf8Bytes(argsDict);
+        using var doc = JsonDocument.Parse(jsonBytes);
+        var args = doc.RootElement.Clone();
+
+        VM.McpActivityLogs.Insert(0, $"[MCP Tool] calling generate_captions for clip {clip.Id}");
+        try
+        {
+            var result = await App.McpServer.DispatchToolCallAsync(Lumos.MCP.ToolDefinitions.GenerateCaptions, args);
+            VM.McpActivityLogs.Insert(0, $"[MCP Tool] generate_captions result: {result}");
+            VM.AIChatMessages.Add(new ChatMessageViewModel("Captions successfully generated and mapped onto track A2.", false));
+        }
+        catch (Exception ex)
+        {
+            VM.McpActivityLogs.Insert(0, $"[MCP Error] generate_captions failed: {ex.Message}");
+            VM.AIChatMessages.Add(new ChatMessageViewModel("Failed to generate captions: " + ex.Message, false));
+        }
     }
 
     private void OnRulerPointerPressed(object? sender, PointerPressedEventArgs e)

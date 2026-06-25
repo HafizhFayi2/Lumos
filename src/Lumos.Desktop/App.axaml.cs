@@ -11,6 +11,7 @@ using Lumos.Infrastructure;
 using Lumos.Media;
 using Lumos.Desktop.ViewModels;
 using Lumos.Desktop.Views;
+using Lumos.MCP;
 
 namespace Lumos.Desktop;
 
@@ -20,6 +21,7 @@ public partial class App : Avalonia.Application
     public static CommandQueue CommandQueue { get; private set; } = null!;
     public static AssetManager AssetManager { get; private set; } = null!;
     public static VideoEngine VideoEngine { get; private set; } = null!;
+    public static McpServer McpServer { get; private set; } = null!;
 
     public override void Initialize()
     {
@@ -35,6 +37,11 @@ public partial class App : Avalonia.Application
             desktop.MainWindow = new MainWindow
             {
                 DataContext = new MainWindowViewModel()
+            };
+            desktop.Exit += (s, e) =>
+            {
+                McpServer?.StopAsync().GetAwaiter().GetResult();
+                McpServer?.Dispose();
             };
         }
 
@@ -57,7 +64,8 @@ public partial class App : Avalonia.Application
         var frameCache = new FrameCache();
         var frameProvider = new FrameProvider(frameCache);
         var seekController = new SeekController();
-        VideoEngine = new VideoEngine(EditorStore, frameProvider, seekController);
+        var compositor = new SkiaCompositor(1920, 1080);
+        VideoEngine = new VideoEngine(EditorStore, frameProvider, seekController, compositor);
 
         // 4. Initial Timeline Setup
         var timeline = new Timeline { Fps = 30, Width = 1920, Height = 1080 };
@@ -69,5 +77,9 @@ public partial class App : Avalonia.Application
         var projectId = Guid.NewGuid();
         EditorStore.SetProject(projectId, "Untitled Project", timeline);
         VideoEngine.Rebuild();
+
+        var exporter = new MediaExporter();
+        McpServer = new McpServer(EditorStore, CommandQueue, exporter, AssetManager);
+        _ = McpServer.StartAsync();
     }
 }

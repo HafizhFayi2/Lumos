@@ -13,6 +13,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
     private readonly EditorStore _store;
     private readonly IFrameProvider _frameProvider;
     private readonly ISeekController _seekController;
+    private readonly IFrameCompositor? _frameCompositor;
     private readonly CompositionBuilder _composer = new();
 
     private CancellationTokenSource? _playbackCts;
@@ -20,11 +21,12 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
 
     public event Action<int, byte[]>? FrameComposited;
 
-    public VideoEngine(EditorStore store, IFrameProvider frameProvider, ISeekController seekController)
+    public VideoEngine(EditorStore store, IFrameProvider frameProvider, ISeekController seekController, IFrameCompositor? frameCompositor = null)
     {
         _store = store;
         _frameProvider = frameProvider;
         _seekController = seekController;
+        _frameCompositor = frameCompositor;
         
         var timeline = _store.State.Timeline.Timeline;
         if (timeline != null)
@@ -100,6 +102,11 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
         if (compFrame == null || compFrame.Visual.Count == 0)
         {
             return new byte[width * height * 4]; // Black frame
+        }
+
+        if (_frameCompositor != null)
+        {
+            return await _frameCompositor.CompositeAsync(compFrame);
         }
 
         byte[] dest = new byte[width * height * 4];
@@ -287,5 +294,9 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
     public void Dispose()
     {
         Pause();
+        if (_frameCompositor is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
     }
 }
