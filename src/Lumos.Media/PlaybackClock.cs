@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 
-namespace Palmier.Media;
+namespace Lumos.Media;
 
 public class PlaybackClock
 {

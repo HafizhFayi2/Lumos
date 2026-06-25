@@ -1,4 +1,4 @@
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 /// Constraint for types that can be interpolated between keyframes.
 public interface IKeyframeInterpolatable<T>

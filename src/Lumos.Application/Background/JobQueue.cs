@@ -2,7 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
-namespace Palmier.Application.Background;
+namespace Lumos.Application.Background;
 
 public enum JobPriority { Low, Medium, High, Critical }
 

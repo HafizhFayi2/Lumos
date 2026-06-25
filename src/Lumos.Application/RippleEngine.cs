@@ -1,6 +1,6 @@
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application;
+namespace Lumos.Application;
 
 /// A proposed new start frame for a single clip, produced by the ripple engine
 /// and applied by the caller.

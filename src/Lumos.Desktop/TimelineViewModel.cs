@@ -1,8 +1,8 @@
-using Palmier.Domain;
+using Lumos.Domain;
 using System;
 using System.Collections.ObjectModel;
 
-namespace Palmier.Desktop.ViewModels;
+namespace Lumos.Desktop.ViewModels;
 
 public class TimelineViewModel : ViewModelBase
 {

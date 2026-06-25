@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Immutable;
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.State;
+namespace Lumos.Application.State;
 
 /// Snapshot of the current timeline data. The Timeline object itself is mutable
 /// (for command compatibility), but TimelineState wraps it with a monotonically

@@ -4,7 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Palmier.Media;
+namespace Lumos.Media;
 
 public sealed class ProxyManager
 {

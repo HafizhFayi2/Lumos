@@ -1,11 +1,11 @@
-using Palmier.Domain;
-using Palmier.Application;
+using Lumos.Domain;
+using Lumos.Application;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Palmier.Infrastructure;
+namespace Lumos.Infrastructure;
 
 public class MediaVisualCache
 {

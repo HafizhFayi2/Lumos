@@ -1,9 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:Palmier.Desktop.ViewModels"
-        x:Class="Palmier.Desktop.Views.MainWindow"
+        xmlns:vm="using:Lumos.Desktop.ViewModels"
+        x:Class="Lumos.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="Palmier"
+        Title="Lumos"
         Width="1440" Height="900"
         MinWidth="1024" MinHeight="600"
         Background="#0D1117"
@@ -663,7 +663,7 @@
                 <Border CornerRadius="8" Background="#1C2430" Padding="10,8" Margin="8,4" HorizontalAlignment="Left" IsVisible="{Binding AITyping}">
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <Ellipse Width="6" Height="6" Fill="#4FC3F7"/>
-                    <TextBlock Text="Palmier AI is editing..." Foreground="#5C6A7C" FontSize="11" FontStyle="Italic"/>
+                    <TextBlock Text="Lumos AI is editing..." Foreground="#5C6A7C" FontSize="11" FontStyle="Italic"/>
                   </StackPanel>
                 </Border>
               </StackPanel>

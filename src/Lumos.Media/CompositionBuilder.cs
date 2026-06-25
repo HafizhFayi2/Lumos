@@ -1,6 +1,6 @@
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Media;
+namespace Lumos.Media;
 
 /// Resolves a Timeline + playhead frame into an ordered list of CompositionSlots.
 /// Mirrors VideoEngine.rebuild() without any AVFoundation dependencies.

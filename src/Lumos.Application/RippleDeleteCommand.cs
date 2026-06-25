@@ -1,6 +1,6 @@
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application;
+namespace Lumos.Application;
 
 public class RippleDeleteCommand : ICommand
 {

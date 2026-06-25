@@ -1,8 +1,8 @@
 using System;
 using System.Threading;
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.State;
+namespace Lumos.Application.State;
 
 /// Centralized state container. All editor mutations flow through here.
 /// Thread-safe: mutations are serialized via a lock.

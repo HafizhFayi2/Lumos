@@ -113,7 +113,7 @@ function ChatMessage({ sender, message, children, isGenerating }: { sender: 'use
         {sender === 'assistant' ? (
           <>
             <Bot className="w-3.5 h-3.5 text-accent-secondary" />
-            <span className="text-[11px] font-semibold text-ink">Palmier AI</span>
+            <span className="text-[11px] font-semibold text-ink">Lumos AI</span>
           </>
         ) : (
           <span className="text-[11px] font-medium text-muted">You</span>

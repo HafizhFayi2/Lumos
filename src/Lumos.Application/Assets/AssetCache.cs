@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Palmier.Application.Assets;
+namespace Lumos.Application.Assets;
 
 public sealed class AssetCache
 {

@@ -1,0 +1,37 @@
+## .NET build outputs
+bin/
+obj/
+out/
+
+## Visual Studio artifacts
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+artifacts/
+
+## Rider
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Logs
+*.log
+*.tlog
+
+## Test results
+TestResults/
+coverage/
+*.coverage
+
+## Published output
+publish/

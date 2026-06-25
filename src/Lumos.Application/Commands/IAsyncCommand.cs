@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 
-namespace Palmier.Application.Commands;
+namespace Lumos.Application.Commands;
 
 /// Async command interface. All timeline operations implement this.
 public interface IAsyncCommand

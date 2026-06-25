@@ -1,10 +1,10 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Palmier.Application;
-using Palmier.Domain;
+using Lumos.Application;
+using Lumos.Domain;
 
-namespace Palmier.Infrastructure;
+namespace Lumos.Infrastructure;
 
 /// Generates clip thumbnails and audio waveform data.
 /// Uses a checkerboard placeholder until FFmpeg bindings are wired.

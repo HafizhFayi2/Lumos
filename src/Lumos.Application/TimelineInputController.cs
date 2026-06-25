@@ -1,9 +1,9 @@
-using Palmier.Domain;
+using Lumos.Domain;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Palmier.Application;
+namespace Lumos.Application;
 
 public interface ITimelineViewContext
 {

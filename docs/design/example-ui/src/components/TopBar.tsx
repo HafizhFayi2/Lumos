@@ -14,7 +14,7 @@ export default function TopBar({ onExport }: TopBarProps) {
           <div className="w-5 h-5 bg-primary rounded-sm flex items-center justify-center">
             <Video className="w-3 h-3 text-on-primary" />
           </div>
-          <span className="text-sm font-medium text-ink tracking-tight">Palmier</span>
+          <span className="text-sm font-medium text-ink tracking-tight">Lumos</span>
         </div>
         
         <div className="flex items-center gap-1">

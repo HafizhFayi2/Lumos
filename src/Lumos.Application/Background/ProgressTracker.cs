@@ -1,6 +1,6 @@
 using System;
 
-namespace Palmier.Application.Background;
+namespace Lumos.Application.Background;
 
 public sealed class ProgressTracker : IProgress<double>
 {

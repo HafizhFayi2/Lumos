@@ -3,10 +3,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-using Palmier.Application;
-using Palmier.Domain;
+using Lumos.Application;
+using Lumos.Domain;
 
-namespace Palmier.Infrastructure;
+namespace Lumos.Infrastructure;
 
 /// Exports a Timeline to a video file via FFmpeg.
 /// Builds a concat/filter_complex script from CompositionBuilder slots

@@ -1,6 +1,6 @@
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Media;
+namespace Lumos.Media;
 
 /// One resolved clip entry for a given timeline frame.
 public sealed record CompositionSlot(

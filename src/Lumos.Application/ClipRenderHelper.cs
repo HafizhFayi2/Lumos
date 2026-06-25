@@ -1,8 +1,8 @@
-using Palmier.Domain;
+using Lumos.Domain;
 using System;
 using System.Collections.Generic;
 
-namespace Palmier.Application;
+namespace Lumos.Application;
 
 public static class ClipRenderHelper
 {

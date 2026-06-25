@@ -1,8 +1,8 @@
 using System;
 using System.Threading;
-using Palmier.Application.State;
+using Lumos.Application.State;
 
-namespace Palmier.Application.Commands;
+namespace Lumos.Application.Commands;
 
 /// Execution context passed to every command.
 /// Provides access to the editor state, cancellation, and progress reporting.

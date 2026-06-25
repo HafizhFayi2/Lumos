@@ -1,18 +1,18 @@
 using System;
 
-namespace Palmier.Application.State;
+namespace Lumos.Application.State;
 
 /// Immutable viewport state. Tracks zoom level, scroll position, and ruler visibility.
 public sealed record ViewportState
 {
-    public double PixelsPerFrame { get; init; } = Palmier.Domain.Defaults.PixelsPerFrame;
+    public double PixelsPerFrame { get; init; } = Lumos.Domain.Defaults.PixelsPerFrame;
     public double ScrollX { get; init; }
     public double ScrollY { get; init; }
     public double ViewportWidth { get; init; } = 800;
     public double ViewportHeight { get; init; } = 300;
     public bool ShowRuler { get; init; } = true;
 
-    public double ZoomPercent => PixelsPerFrame / Palmier.Domain.Defaults.PixelsPerFrame * 100;
+    public double ZoomPercent => PixelsPerFrame / Lumos.Domain.Defaults.PixelsPerFrame * 100;
 
     // ── Transition methods ──────────────────────────────────────────────────
 
@@ -21,8 +21,8 @@ public sealed record ViewportState
         {
             PixelsPerFrame = Math.Clamp(
                 pixelsPerFrame,
-                Palmier.Domain.Zoom.Min,
-                Palmier.Domain.Zoom.Max
+                Lumos.Domain.Zoom.Min,
+                Lumos.Domain.Zoom.Max
             )
         };
 
@@ -50,7 +50,7 @@ public sealed record ViewportState
     public ViewportState FitAll(int totalFrames)
     {
         if (totalFrames <= 0 || ViewportWidth <= 0) return this;
-        double ppf = (ViewportWidth - Palmier.Domain.Zoom.FitAllBuffer * 2) / totalFrames;
+        double ppf = (ViewportWidth - Lumos.Domain.Zoom.FitAllBuffer * 2) / totalFrames;
         return SetZoom(ppf) with { ScrollX = 0 };
     }
 }

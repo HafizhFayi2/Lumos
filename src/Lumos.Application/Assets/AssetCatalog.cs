@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.Assets;
+namespace Lumos.Application.Assets;
 
 public sealed class AssetCatalog
 {

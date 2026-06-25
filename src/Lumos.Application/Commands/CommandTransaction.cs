@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Palmier.Application.State;
-using Palmier.Domain;
+using Lumos.Application.State;
+using Lumos.Domain;
 
-namespace Palmier.Application.Commands;
+namespace Lumos.Application.Commands;
 
 /// Groups multiple commands into an atomic unit.
 /// If any step fails or is cancelled, all previously executed steps are rolled back.

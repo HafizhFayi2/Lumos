@@ -1,4 +1,4 @@
-namespace Palmier.Application;
+namespace Lumos.Application;
 
 public interface ICommand
 {

@@ -4,9 +4,9 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using Palmier.Application.State;
+using Lumos.Application.State;
 
-namespace Palmier.Application.Commands;
+namespace Lumos.Application.Commands;
 
 /// Serialized async command queue with undo/redo.
 /// All commands are funneled through a single background consumer

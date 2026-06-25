@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Palmier.Application.Background;
+namespace Lumos.Application.Background;
 
 public sealed class TaskSchedulerService : IDisposable
 {

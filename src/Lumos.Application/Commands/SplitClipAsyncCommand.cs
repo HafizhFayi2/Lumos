@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.Commands;
+namespace Lumos.Application.Commands;
 
 public sealed class SplitClipAsyncCommand : TimelineCommand
 {
@@ -75,6 +75,8 @@ public sealed class SplitClipAsyncCommand : TimelineCommand
         int leftSource  = (int)Math.Round(splitOffset * clip.Speed);
         int rightSource = (int)Math.Round((clip.DurationFrames - splitOffset) * clip.Speed);
 
+        int originalDuration = clip.DurationFrames;
+
         var left = clip;
         left.DurationFrames = splitOffset;
         left.TrimEndFrame  += rightSource;
@@ -84,7 +86,7 @@ public sealed class SplitClipAsyncCommand : TimelineCommand
 
         var right = clip.Clone(newId: true);
         right.StartFrame      = atFrame;
-        right.DurationFrames  = clip.DurationFrames - splitOffset;
+        right.DurationFrames  = originalDuration - splitOffset;
         right.TrimStartFrame += leftSource;
         right.FadeInFrames    = 0;
         right.ClampFadesToDuration();

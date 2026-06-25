@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Immutable;
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.State;
+namespace Lumos.Application.State;
 
 /// Immutable selection state. Tracks which clips, tracks, and range are selected,
 /// plus the active track for new insertions.

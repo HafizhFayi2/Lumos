@@ -1,7 +1,7 @@
 using System;
 using Avalonia;
 
-namespace Palmier.Desktop;
+namespace Lumos.Desktop;
 
 class Program
 {

@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
-using Palmier.Domain;
-using Palmier.Application.Assets;
-using Palmier.Application.State;
-using Palmier.Application.Commands;
+using Lumos.Domain;
+using Lumos.Application.Assets;
+using Lumos.Application.State;
+using Lumos.Application.Commands;
 
-namespace Palmier.Desktop.ViewModels;
+namespace Lumos.Desktop.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase
 {
@@ -177,7 +177,7 @@ public class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel()
     {
         // Add initial system message from Assistant
-        AIChatMessages.Add(new ChatMessageViewModel("Hi! I'm Palmier AI, your creative co-editor. Tell me what you'd like to do, or select a quick action below.", false));
+        AIChatMessages.Add(new ChatMessageViewModel("Hi! I'm Lumos AI, your creative co-editor. Tell me what you'd like to do, or select a quick action below.", false));
         McpActivityLogs.Add("[System] MCP server initialized and ready.");
 
         // Register to EditorStore events

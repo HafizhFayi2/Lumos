@@ -1,10 +1,10 @@
-# Palmier Desktop
+# Lumos Desktop
 
 > AI-Native Video Editor for Windows
 
-Palmier Desktop is an open-source Windows-first video editor inspired by the concept of AI-operable creative software.
+Lumos Desktop is an open-source Windows-first video editor inspired by the concept of AI-operable creative software.
 
-Unlike traditional video editors that add AI as a feature, Palmier Desktop is designed from the ground up to be controlled by AI agents through MCP (Model Context Protocol).
+Unlike traditional video editors that add AI as a feature, Lumos Desktop is designed from the ground up to be controlled by AI agents through MCP (Model Context Protocol).
 
 The long-term goal is to create a professional video editing platform where Claude, Gemini, GPT, local models, and future AI agents can interact directly with projects, timelines, assets, and workspace tools.
 
@@ -20,7 +20,7 @@ AI-native software:
 
 Human → AI Agent → MCP Tools → Software
 
-Palmier Desktop follows the second approach.
+Lumos Desktop follows the second approach.
 
 The editor itself remains fully usable by humans, while every action inside the editor can also be exposed through MCP-compatible tools.
 
@@ -54,7 +54,7 @@ The editor itself remains fully usable by humans, while every action inside the 
 
 ### 1. Editor First
 
-Palmier Desktop is a real video editor.
+Lumos Desktop is a real video editor.
 
 The AI layer is an addition, not a requirement.
 
@@ -134,7 +134,7 @@ This allows AI agents to manipulate projects safely and predictably.
 
 # Architecture
 
-Palmier Desktop is organized into multiple layers.
+Lumos Desktop is organized into multiple layers.
 
 ```text
 Presentation Layer
@@ -280,13 +280,13 @@ Features:
 
 Goal:
 
-Turn Palmier Desktop into an AI-native creative workspace.
+Turn Lumos Desktop into an AI-native creative workspace.
 
 ---
 
 # Future Vision
 
-Palmier Desktop aims to become more than a video editor.
+Lumos Desktop aims to become more than a video editor.
 
 The long-term vision is an AI-native creative workspace where:
 

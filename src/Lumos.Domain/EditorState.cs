@@ -1,7 +1,7 @@
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 /// Legacy mutable editor state. Retained for TimelineInputController compatibility
-/// during migration. New code should use Palmier.Application.State.EditorState.
+/// during migration. New code should use Lumos.Application.State.EditorState.
 public class LegacyEditorState
 {
     public TimeSpan PlayheadPosition { get; set; }

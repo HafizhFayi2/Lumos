@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.Assets;
+namespace Lumos.Application.Assets;
 
 public sealed class AssetManager
 {

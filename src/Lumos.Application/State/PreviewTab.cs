@@ -1,6 +1,6 @@
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.State;
+namespace Lumos.Application.State;
 
 public abstract record PreviewTab
 {

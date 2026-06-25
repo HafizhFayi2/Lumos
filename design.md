@@ -1,6 +1,6 @@
 ## Overview
 
-This is a **dark-canvas, sky-blue accent** design system for a native video-editing application (in the spirit of Palmier Pro / CapCut Desktop / DaVinci Resolve). The base atmosphere is a **near-black blue-tinted canvas** (`{colors.canvas}` — #0D1117) — a true editing-room dark theme so footage, thumbnails, and waveforms stay the visual focus, not the chrome around them.
+This is a **dark-canvas, sky-blue accent** design system for a native video-editing application (in the spirit of Lumos Pro / CapCut Desktop / DaVinci Resolve). The base atmosphere is a **near-black blue-tinted canvas** (`{colors.canvas}` — #0D1117) — a true editing-room dark theme so footage, thumbnails, and waveforms stay the visual focus, not the chrome around them.
 
 Brand voltage comes from a **five-step sky-blue ramp**, lifted directly from the reference palette:
 

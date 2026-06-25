@@ -1,4 +1,4 @@
-namespace Palmier.Media;
+namespace Lumos.Media;
 
 public enum PlaybackState
 {

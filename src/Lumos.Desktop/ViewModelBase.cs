@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace Palmier.Desktop.ViewModels;
+namespace Lumos.Desktop.ViewModels;
 
 // A basic observable object replacing ReactiveUI's ReactiveObject for the blueprint
 public class ViewModelBase : INotifyPropertyChanged

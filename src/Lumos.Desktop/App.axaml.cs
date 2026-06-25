@@ -3,16 +3,16 @@ using System.IO;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Palmier.Application.Assets;
-using Palmier.Application.Commands;
-using Palmier.Application.State;
-using Palmier.Domain;
-using Palmier.Infrastructure;
-using Palmier.Media;
-using Palmier.Desktop.ViewModels;
-using Palmier.Desktop.Views;
+using Lumos.Application.Assets;
+using Lumos.Application.Commands;
+using Lumos.Application.State;
+using Lumos.Domain;
+using Lumos.Infrastructure;
+using Lumos.Media;
+using Lumos.Desktop.ViewModels;
+using Lumos.Desktop.Views;
 
-namespace Palmier.Desktop;
+namespace Lumos.Desktop;
 
 public partial class App : Avalonia.Application
 {

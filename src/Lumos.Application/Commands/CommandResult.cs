@@ -1,6 +1,6 @@
 using System;
 
-namespace Palmier.Application.Commands;
+namespace Lumos.Application.Commands;
 
 /// Outcome of a command execution.
 public sealed class CommandResult

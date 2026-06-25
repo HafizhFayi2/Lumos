@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Palmier.Application.State;
-using Palmier.Domain;
+using Lumos.Application.State;
+using Lumos.Domain;
 
-namespace Palmier.Media;
+namespace Lumos.Media;
 
-public sealed class VideoEngine : IDisposable
+public sealed class VideoEngine : IFrameProvider, IDisposable
 {
     private readonly EditorStore _store;
     private readonly IFrameProvider _frameProvider;
@@ -87,6 +87,11 @@ public sealed class VideoEngine : IDisposable
                 FrameComposited?.Invoke(f, pixelData);
             }
         });
+    }
+
+    public async Task<byte[]?> GetFrameAsync(string assetPath, int sourceFrame, int width, int height)
+    {
+        return await GetCompositedFrameAsync(sourceFrame, width, height);
     }
 
     public async Task<byte[]?> GetCompositedFrameAsync(int frame, int width, int height)

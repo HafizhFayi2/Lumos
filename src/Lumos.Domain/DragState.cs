@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 public abstract record DragState
 {

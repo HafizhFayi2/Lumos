@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.Commands;
+namespace Lumos.Application.Commands;
 
 public sealed class TrimClipAsyncCommand : TimelineCommand
 {

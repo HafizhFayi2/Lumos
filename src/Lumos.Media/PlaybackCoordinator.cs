@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Palmier.Application.State;
-using Palmier.Domain;
+using Lumos.Application.State;
+using Lumos.Domain;
 
-namespace Palmier.Media;
+namespace Lumos.Media;
 
 public sealed class PlaybackCoordinator : IDisposable
 {

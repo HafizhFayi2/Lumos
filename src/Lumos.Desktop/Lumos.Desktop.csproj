@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\Palmier.Application\Palmier.Application.csproj" />
-    <ProjectReference Include="..\Palmier.Domain\Palmier.Domain.csproj" />
-    <ProjectReference Include="..\Palmier.Infrastructure\Palmier.Infrastructure.csproj" />
-    <ProjectReference Include="..\Palmier.Media\Palmier.Media.csproj" />
-    <ProjectReference Include="..\Palmier.MCP\Palmier.MCP.csproj" />
-    <ProjectReference Include="..\Palmier.AI\Palmier.AI.csproj" />
+    <ProjectReference Include="..\Lumos.Application\Lumos.Application.csproj" />
+    <ProjectReference Include="..\Lumos.Domain\Lumos.Domain.csproj" />
+    <ProjectReference Include="..\Lumos.Infrastructure\Lumos.Infrastructure.csproj" />
+    <ProjectReference Include="..\Lumos.Media\Lumos.Media.csproj" />
+    <ProjectReference Include="..\Lumos.MCP\Lumos.MCP.csproj" />
+    <ProjectReference Include="..\Lumos.AI\Lumos.AI.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.0.10" />

@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Palmier.Media;
+namespace Lumos.Media;
 
 public sealed class MediaPipeline : IDisposable
 {

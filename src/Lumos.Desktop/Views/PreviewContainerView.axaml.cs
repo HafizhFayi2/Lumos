@@ -5,9 +5,9 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using Palmier.Media;
+using Lumos.Media;
 
-namespace Palmier.Desktop.Views;
+namespace Lumos.Desktop.Views;
 
 public partial class PreviewContainerView : UserControl
 {

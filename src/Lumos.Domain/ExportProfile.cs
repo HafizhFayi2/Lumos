@@ -1,4 +1,4 @@
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 public class ExportProfile
 {

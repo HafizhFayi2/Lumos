@@ -3,21 +3,21 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Palmier.Domain", "Palmier.Domain\Palmier.Domain.csproj", "{0EA2DC6B-A004-4F54-834A-2E60EC05098C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumos.Domain", "Lumos.Domain\Lumos.Domain.csproj", "{0EA2DC6B-A004-4F54-834A-2E60EC05098C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Palmier.Application", "Palmier.Application\Palmier.Application.csproj", "{8B6F4870-6BD6-4D48-AF20-50377459EEF2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumos.Application", "Lumos.Application\Lumos.Application.csproj", "{8B6F4870-6BD6-4D48-AF20-50377459EEF2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Palmier.Infrastructure", "Palmier.Infrastructure\Palmier.Infrastructure.csproj", "{AFC6F47B-8739-495A-BC36-A041AD88A61A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumos.Infrastructure", "Lumos.Infrastructure\Lumos.Infrastructure.csproj", "{AFC6F47B-8739-495A-BC36-A041AD88A61A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Palmier.Media", "Palmier.Media\Palmier.Media.csproj", "{3B61753A-F316-4E43-B747-B9A38AC1BB72}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumos.Media", "Lumos.Media\Lumos.Media.csproj", "{3B61753A-F316-4E43-B747-B9A38AC1BB72}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Palmier.MCP", "Palmier.MCP\Palmier.MCP.csproj", "{0339C6FA-DE14-4531-8C6D-4CDF790B4AB3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumos.MCP", "Lumos.MCP\Lumos.MCP.csproj", "{0339C6FA-DE14-4531-8C6D-4CDF790B4AB3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Palmier.AI", "Palmier.AI\Palmier.AI.csproj", "{D43A136A-34FD-4593-8598-686E371A2D89}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumos.AI", "Lumos.AI\Lumos.AI.csproj", "{D43A136A-34FD-4593-8598-686E371A2D89}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Palmier.Desktop", "Palmier.Desktop\Palmier.Desktop.csproj", "{CDE4C9F8-0675-4719-8C32-15D785F902C6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumos.Desktop", "Lumos.Desktop\Lumos.Desktop.csproj", "{CDE4C9F8-0675-4719-8C32-15D785F902C6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Palmier.Tests", "Palmier.Tests\Palmier.Tests.csproj", "{5DC1E622-1398-4A3A-B658-BB79F38B5A8F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumos.Tests", "Lumos.Tests\Lumos.Tests.csproj", "{5DC1E622-1398-4A3A-B658-BB79F38B5A8F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

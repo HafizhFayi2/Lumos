@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Immutable;
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.State;
+namespace Lumos.Application.State;
 
 /// Composite editor state — single source of truth for the entire editor.
 /// Contains all sub-states as immutable slices (except Timeline which is

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 /// Canvas-normalized (0-1) transform. Center coordinates and size.
 public sealed class Transform : IEquatable<Transform>

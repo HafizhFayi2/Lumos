@@ -1,6 +1,6 @@
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application;
+namespace Lumos.Application;
 
 public interface IPlaybackEngine : IDisposable
 {
@@ -19,4 +19,7 @@ public interface IPlaybackEngine : IDisposable
 
     /// Raised on UI thread each time the playhead advances.
     event EventHandler<TimeSpan> PositionChanged;
+
+    /// Raised when a new composited frame is ready.
+    event EventHandler<(int frame, byte[] data)>? FrameReady;
 }

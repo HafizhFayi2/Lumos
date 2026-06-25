@@ -11,11 +11,11 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using Palmier.Domain;
-using Palmier.Application.Commands;
-using Palmier.Desktop.ViewModels;
+using Lumos.Domain;
+using Lumos.Application.Commands;
+using Lumos.Desktop.ViewModels;
 
-namespace Palmier.Desktop.Views;
+namespace Lumos.Desktop.Views;
 
 public partial class MainWindow : Window
 {
@@ -243,8 +243,8 @@ public partial class MainWindow : Window
         {
             Dispatcher.UIThread.Post(() =>
             {
-                VM.McpActivityLogs.Insert(0, "[Export] Render success! Output saved to: Documents/PalmierExports/");
-                VM.AIChatMessages.Add(new ChatMessageViewModel("Export complete! Saved to Documents/PalmierExports/", false));
+                VM.McpActivityLogs.Insert(0, "[Export] Render success! Output saved to: Documents/LumosExports/");
+                VM.AIChatMessages.Add(new ChatMessageViewModel("Export complete! Saved to Documents/LumosExports/", false));
             });
         });
     }

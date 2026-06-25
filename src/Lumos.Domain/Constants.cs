@@ -1,4 +1,4 @@
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 public enum LayoutPreset
 {
@@ -92,9 +92,9 @@ public static class Trim
 
 public static class ProjectDefaults
 {
-    public const string FileExtension = "palmier";
+    public const string FileExtension = "lumos";
     public const string RegistryFilename = "project-registry.json";
-    public const string TypeIdentifier = "io.palmier.project";
+    public const string TypeIdentifier = "io.lumos.project";
     public const string DefaultProjectName = "Untitled Project";
     public const string TimelineFilename = "project.json";
     public const string ManifestFilename = "media.json";

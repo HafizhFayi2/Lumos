@@ -1,4 +1,4 @@
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 public enum Interpolation { Linear, Hold, Smooth }
 

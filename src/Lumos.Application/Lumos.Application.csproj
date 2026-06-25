@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\Palmier.Domain\Palmier.Domain.csproj" />
+    <ProjectReference Include="..\Lumos.Domain\Lumos.Domain.csproj" />
   </ItemGroup>
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>

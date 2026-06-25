@@ -1,8 +1,8 @@
 using System;
-using Palmier.Application;
-using Palmier.Domain;
+using Lumos.Application;
+using Lumos.Domain;
 
-namespace Palmier.Desktop.ViewModels;
+namespace Lumos.Desktop.ViewModels;
 
 public sealed class PlaybackViewModel : ViewModelBase, IDisposable
 {

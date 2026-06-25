@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Immutable;
-using Palmier.Domain;
+using Lumos.Domain;
 
-namespace Palmier.Application.State;
+namespace Lumos.Application.State;
 
 /// Immutable undo/redo history. Stores timeline snapshots as a linear
 /// stack with a pointer into the current position.

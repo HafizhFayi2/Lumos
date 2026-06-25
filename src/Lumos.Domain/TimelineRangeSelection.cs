@@ -1,4 +1,4 @@
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 public readonly record struct TimelineRangeSelection(int StartFrame, int EndFrame)
 {

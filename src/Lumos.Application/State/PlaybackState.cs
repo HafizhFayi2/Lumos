@@ -1,6 +1,6 @@
 using System;
 
-namespace Palmier.Application.State;
+namespace Lumos.Application.State;
 
 public enum PlaybackMode
 {

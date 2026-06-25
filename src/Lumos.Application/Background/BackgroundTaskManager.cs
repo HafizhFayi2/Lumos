@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Palmier.Application.Background;
+namespace Lumos.Application.Background;
 
 public sealed class BackgroundTaskManager : IDisposable
 {

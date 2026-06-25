@@ -1,4 +1,4 @@
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 /// Per-clip crop as edge insets in normalized (0-1) source coordinates.
 public sealed class Crop : IEquatable<Crop>, IKeyframeInterpolatable<Crop>

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
-namespace Palmier.Application.Assets;
+namespace Lumos.Application.Assets;
 
 public sealed class ProjectAssetRegistry
 {

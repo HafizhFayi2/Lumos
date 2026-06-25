@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace Palmier.Media;
+namespace Lumos.Media;
 
 public interface ISeekController
 {

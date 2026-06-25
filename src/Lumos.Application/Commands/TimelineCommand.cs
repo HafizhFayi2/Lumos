@@ -1,10 +1,10 @@
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Palmier.Application.State;
-using Palmier.Domain;
+using Lumos.Application.State;
+using Lumos.Domain;
 
-namespace Palmier.Application.Commands;
+namespace Lumos.Application.Commands;
 
 /// Base class for commands that mutate the timeline via snapshot/restore.
 /// Subclasses implement Apply() which receives the mutable Timeline.

@@ -1,4 +1,4 @@
-namespace Palmier.Domain;
+namespace Lumos.Domain;
 
 /// One entry in a clip's ordered effect stack.
 public sealed class Effect

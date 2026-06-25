@@ -2,10 +2,10 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Palmier.Application;
-using Palmier.Domain;
+using Lumos.Application;
+using Lumos.Domain;
 
-namespace Palmier.Media;
+namespace Lumos.Media;
 
 /// Primary playback engine. Drives the playhead clock via a background loop,
 /// raises PositionChanged on every frame boundary, and delegates frame
@@ -14,6 +14,7 @@ public sealed class PlaybackEngine : IPlaybackEngine
 {
     private readonly CompositionBuilder _composer = new();
     private readonly PlaybackClock _clock = new();
+    private readonly IFrameProvider _frameProvider;
 
     private Timeline? _timeline;
     private CancellationTokenSource? _cts;
@@ -33,6 +34,12 @@ public sealed class PlaybackEngine : IPlaybackEngine
     }
 
     public event EventHandler<TimeSpan>? PositionChanged;
+    public event EventHandler<(int frame, byte[] data)>? FrameReady;
+
+    public PlaybackEngine(IFrameProvider frameProvider)
+    {
+        _frameProvider = frameProvider;
+    }
 
     public void LoadTimeline(Timeline timeline)
     {
@@ -123,6 +130,12 @@ public sealed class PlaybackEngine : IPlaybackEngine
             }
 
             RaisePositionChanged(_currentPosition);
+
+            var pixelData = await _frameProvider.GetFrameAsync("", frame, 1920, 1080);
+            if (pixelData != null)
+            {
+                FrameReady?.Invoke(this, (frame, pixelData));
+            }
 
             long elapsed = sw.ElapsedMilliseconds;
             int delay = (int)Math.Max(0, frameDurationMs - elapsed);

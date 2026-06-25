@@ -1,6 +1,6 @@
 using System;
 
-namespace Palmier.Application.State;
+namespace Lumos.Application.State;
 
 /// Raised when any part of the editor state changes.
 public sealed class StateChangedEventArgs : EventArgs
