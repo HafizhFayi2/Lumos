@@ -1,0 +1,55 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "Palmier.MCP/1.0.0": {
+        "dependencies": {
+          "Palmier.Application": "1.0.0"
+        },
+        "runtime": {
+          "Palmier.MCP.dll": {}
+        }
+      },
+      "Palmier.Application/1.0.0": {
+        "dependencies": {
+          "Palmier.Domain": "1.0.0"
+        },
+        "runtime": {
+          "Palmier.Application.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Palmier.Domain/1.0.0": {
+        "runtime": {
+          "Palmier.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Palmier.MCP/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Palmier.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Palmier.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

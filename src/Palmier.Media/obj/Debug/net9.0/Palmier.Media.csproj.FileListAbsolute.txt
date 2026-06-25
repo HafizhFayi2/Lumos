@@ -1,0 +1,17 @@
+P:\PALMIER-DEKSTOP\src\Palmier.Media\bin\Debug\net9.0\Palmier.Media.deps.json
+P:\PALMIER-DEKSTOP\src\Palmier.Media\bin\Debug\net9.0\Palmier.Media.dll
+P:\PALMIER-DEKSTOP\src\Palmier.Media\bin\Debug\net9.0\Palmier.Media.pdb
+P:\PALMIER-DEKSTOP\src\Palmier.Media\bin\Debug\net9.0\Palmier.Application.dll
+P:\PALMIER-DEKSTOP\src\Palmier.Media\bin\Debug\net9.0\Palmier.Domain.dll
+P:\PALMIER-DEKSTOP\src\Palmier.Media\bin\Debug\net9.0\Palmier.Application.pdb
+P:\PALMIER-DEKSTOP\src\Palmier.Media\bin\Debug\net9.0\Palmier.Domain.pdb
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\Palmier.Media.csproj.AssemblyReference.cache
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\Palmier.Media.GeneratedMSBuildEditorConfig.editorconfig
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\Palmier.Media.AssemblyInfoInputs.cache
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\Palmier.Media.AssemblyInfo.cs
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\Palmier.Media.csproj.CoreCompileInputs.cache
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\Palmier..DBEB65C5.Up2Date
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\Palmier.Media.dll
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\refint\Palmier.Media.dll
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\Palmier.Media.pdb
+P:\PALMIER-DEKSTOP\src\Palmier.Media\obj\Debug\net9.0\ref\Palmier.Media.dll

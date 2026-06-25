@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="Palmier.Desktop.Views.PreviewContainerView">
+  
+  <Grid RowDefinitions="Auto, *, Auto" Background="#161C26">
+    <!-- Tab Bar -->
+    <Border Grid.Row="0" Background="#0D1117" Height="36" BorderBrush="#252A34" BorderThickness="0,0,0,1">
+      <DockPanel LastChildFill="True" Margin="8,0">
+        <!-- Navigation Buttons -->
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <Button Content="◀" Background="Transparent" BorderBrush="Transparent" Foreground="#8B949E" Padding="6,2"/>
+          <Button Content="▶" Background="Transparent" BorderBrush="Transparent" Foreground="#8B949E" Padding="6,2"/>
+        </StackPanel>
+        
+        <!-- Tab Items -->
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" Margin="16,0">
+          <TextBlock Text="Timeline" Foreground="#FFFFFF" FontWeight="SemiBold" VerticalAlignment="Center"/>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Main Viewport -->
+    <Grid Grid.Row="1" Background="#000000">
+      <Image Name="PreviewImage" Stretch="Uniform" />
+    </Grid>
+
+    <!-- Transport Control Bar -->
+    <Border Grid.Row="2" Background="#0D1117" Height="40" BorderBrush="#252A34" BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="Auto, *, Auto" Margin="12,0">
+        <!-- Timecode -->
+        <TextBlock Grid.Column="0" Name="TimecodeText" Text="00:00:00:00" Foreground="#8B949E" VerticalAlignment="Center" FontWeight="Medium"/>
+        
+        <!-- Controls -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Button Name="StartBtn" Content="⏮" Background="Transparent" BorderBrush="Transparent" Foreground="#C9D1D9"/>
+          <Button Name="PrevBtn" Content="⏪" Background="Transparent" BorderBrush="Transparent" Foreground="#C9D1D9"/>
+          <Button Name="PlayPauseBtn" Content="▶" Background="Transparent" BorderBrush="Transparent" Foreground="#C9D1D9" FontSize="16" Width="36" HorizontalContentAlignment="Center"/>
+          <Button Name="NextBtn" Content="⏩" Background="Transparent" BorderBrush="Transparent" Foreground="#C9D1D9"/>
+          <Button Name="EndBtn" Content="⏭" Background="Transparent" BorderBrush="Transparent" Foreground="#C9D1D9"/>
+        </StackPanel>
+        
+        <!-- Settings -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBlock Name="AspectText" Text="16:9" Foreground="#8B949E" Margin="4,0" VerticalAlignment="Center" FontSize="11" FontWeight="Bold"/>
+          <TextBlock Name="FpsText" Text="30 fps" Foreground="#8B949E" Margin="4,0" VerticalAlignment="Center" FontSize="11" FontWeight="Bold"/>
+          <TextBlock Name="QualityText" Text="HD" Foreground="#8B949E" Margin="4,0" VerticalAlignment="Center" FontSize="11" FontWeight="Bold"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

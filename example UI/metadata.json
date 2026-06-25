@@ -1,0 +1,6 @@
+{
+  "name": "Palmier Desktop",
+  "description": "An AI-native professional video editor for Windows, featuring a dark-canvas UI, multi-track timeline, and deep MCP assistant integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

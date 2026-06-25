@@ -1,0 +1,15 @@
+P:\PALMIER-DEKSTOP\src\Palmier.Application\bin\Debug\net9.0\Palmier.Application.deps.json
+P:\PALMIER-DEKSTOP\src\Palmier.Application\bin\Debug\net9.0\Palmier.Application.dll
+P:\PALMIER-DEKSTOP\src\Palmier.Application\bin\Debug\net9.0\Palmier.Application.pdb
+P:\PALMIER-DEKSTOP\src\Palmier.Application\bin\Debug\net9.0\Palmier.Domain.dll
+P:\PALMIER-DEKSTOP\src\Palmier.Application\bin\Debug\net9.0\Palmier.Domain.pdb
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\Palmier.Application.csproj.AssemblyReference.cache
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\Palmier.Application.GeneratedMSBuildEditorConfig.editorconfig
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\Palmier.Application.AssemblyInfoInputs.cache
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\Palmier.Application.AssemblyInfo.cs
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\Palmier.Application.csproj.CoreCompileInputs.cache
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\Palmier..01C23583.Up2Date
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\Palmier.Application.dll
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\refint\Palmier.Application.dll
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\Palmier.Application.pdb
+P:\PALMIER-DEKSTOP\src\Palmier.Application\obj\Debug\net9.0\ref\Palmier.Application.dll
