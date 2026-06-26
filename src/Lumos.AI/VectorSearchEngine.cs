@@ -4,35 +4,42 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
+using Microsoft.ML.Tokenizers;
 
 namespace Lumos.AI;
 
 public class VectorSearchEngine
 {
     private InferenceSession? _session;
-    
-    // In a real implementation, we would load the SigLIP 2 ONNX model here
-    // For now, we mock the embedding generation since we don't have the model file.
+    private Tokenizer? _tokenizer;
     
     public async Task InitializeAsync(string modelPath)
     {
         try
         {
+            var dir = System.IO.Path.GetDirectoryName(modelPath) ?? ".";
+            if (!System.IO.Directory.Exists(dir))
+                System.IO.Directory.CreateDirectory(dir);
+
             if (!System.IO.File.Exists(modelPath))
             {
-                // Auto-download a lightweight embedding model (all-MiniLM-L6-v2 ONNX)
-                var dir = System.IO.Path.GetDirectoryName(modelPath);
-                if (dir != null && !System.IO.Directory.Exists(dir))
-                    System.IO.Directory.CreateDirectory(dir);
-
                 using var client = new System.Net.Http.HttpClient();
-                // We use a small quantized MiniLM model as a stand-in for SigLIP text encoder
                 string url = "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/onnx/model_quantized.onnx";
                 var bytes = await client.GetByteArrayAsync(url);
                 await System.IO.File.WriteAllBytesAsync(modelPath, bytes);
             }
 
+            string vocabPath = System.IO.Path.Combine(dir, "vocab.txt");
+            if (!System.IO.File.Exists(vocabPath))
+            {
+                using var client = new System.Net.Http.HttpClient();
+                string url = "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/vocab.txt";
+                var bytes = await client.GetByteArrayAsync(url);
+                await System.IO.File.WriteAllBytesAsync(vocabPath, bytes);
+            }
+
             _session = new InferenceSession(modelPath);
+            _tokenizer = Microsoft.ML.Tokenizers.BertTokenizer.Create(vocabPath);
         }
         catch
         {
@@ -42,32 +49,23 @@ public class VectorSearchEngine
 
     public float[] GetEmbedding(string text)
     {
-        if (_session != null)
+        if (_session != null && _tokenizer != null)
         {
             try
             {
-                // A complete SigLIP text pipeline requires a full BPE tokenizer.
-                // Since this is a standalone demo without tokenizer.json, we will 
-                // tokenise by whitespace and hash to vocab size (30522 for BERT).
-                // This ensures the ONNX model is ACTUALLY executed (tensor math happens)
-                // rather than returning a purely random vector in C#.
+                var tokenIdsList = _tokenizer.EncodeToIds(text.ToLowerInvariant());
+                int seqLen = Math.Min(tokenIdsList.Count, 128); // truncate to max 128
                 
-                var tokens = text.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                int seqLen = Math.Min(tokens.Length + 2, 128); // [CLS] + tokens + [SEP]
                 long[] inputIds = new long[seqLen];
                 long[] attentionMask = new long[seqLen];
                 long[] tokenTypeIds = new long[seqLen];
 
-                inputIds[0] = 101; // [CLS]
-                attentionMask[0] = 1;
-                for (int i = 0; i < tokens.Length && i < 126; i++)
+                for (int i = 0; i < seqLen; i++)
                 {
-                    // Naive deterministic hash to BERT vocab
-                    inputIds[i + 1] = (Math.Abs(tokens[i].GetHashCode()) % 30000) + 1000;
-                    attentionMask[i + 1] = 1;
+                    inputIds[i] = tokenIdsList[i];
+                    attentionMask[i] = 1;
+                    tokenTypeIds[i] = 0;
                 }
-                inputIds[seqLen - 1] = 102; // [SEP]
-                attentionMask[seqLen - 1] = 1;
 
                 var inputIdsTensor = new DenseTensor<long>(inputIds, new[] { 1, seqLen });
                 var attentionMaskTensor = new DenseTensor<long>(attentionMask, new[] { 1, seqLen });

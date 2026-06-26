@@ -24,9 +24,10 @@ public class EffectRendererTests
         var renderer = new ChromaKeyRenderer();
         var bmp = CreateSolidBitmap(10, 10, new SKColor(0, 255, 0)); // Pure green
         var effect = new Effect { Type = "chroma_key", Enabled = true };
-        effect.Params.Add("key_color_h", new EffectParam { NumericValue = 120.0 }); // Green hue
-        effect.Params.Add("tolerance", new EffectParam { NumericValue = 0.1 });
-        effect.Params.Add("feather", new EffectParam { NumericValue = 0.0 });
+        effect.Params.Add("key_r", new EffectParam { NumericValue = 0.0 });
+        effect.Params.Add("key_g", new EffectParam { NumericValue = 255.0 }); // Green key color
+        effect.Params.Add("key_b", new EffectParam { NumericValue = 0.0 });
+        effect.Params.Add("threshold", new EffectParam { NumericValue = 0.1 });
 
         // Act
         var result = renderer.Apply(bmp, effect, 0);
