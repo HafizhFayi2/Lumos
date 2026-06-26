@@ -11,6 +11,8 @@ using Lumos.Application.Commands;
 
 namespace Lumos.Desktop.ViewModels;
 
+public record EffectItemViewModel(string DisplayName, string EffectId, string Icon);
+
 public class MainWindowViewModel : ViewModelBase
 {
     private string _projectName = "Untitled Project";
@@ -177,6 +179,21 @@ public class MainWindowViewModel : ViewModelBase
     public ObservableCollection<TrackViewModel> Tracks { get; } = new();
     
     public InspectorViewModel Inspector { get; } = new();
+
+    public ObservableCollection<EffectItemViewModel> AvailableEffects { get; } = new()
+    {
+        new("Color Grade", "color_grade", "🎨"),
+        new("Chroma Key", "chroma_key", "🔳"),
+        new("Clarity", "clarity", "✨"),
+        new("Glow", "glow", "🌟"),
+        new("Grain", "grain", "📺"),
+        new("Grade Curves", "grade_curves", "📉"),
+        new("Highlights & Shadows", "highlights_shadows", "🌗"),
+        new("LUT (Tetra)", "lut_tetra", "🎞"),
+        new("Levels", "levels", "📊"),
+        new("Color Wheels", "color_wheels", "🎡"),
+        new("Vignette", "vignette", "🌑")
+    };
 
     public ObservableCollection<ChatMessageViewModel> AIChatMessages { get; } = new();
     public ObservableCollection<string> McpActivityLogs { get; } = new();

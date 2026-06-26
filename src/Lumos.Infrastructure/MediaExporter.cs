@@ -23,7 +23,10 @@ public sealed class MediaExporter : IMediaExporter
         int height = profile.Height > 0 ? profile.Height : timeline.Height;
         double fps = profile.FrameRate > 0 ? profile.FrameRate : timeline.Fps;
 
-        string args = $"-y -f rawvideo -pix_fmt bgra -s {width}x{height} -r {fps} -i - -c:v {profile.VideoCodec} -b:v {profile.VideoBitrateKbps}k -pix_fmt yuv420p \"{outputPath}\"";
+        string tempAudioPath = Path.Combine(Path.GetTempPath(), $"lumos_export_{Guid.NewGuid()}.wav");
+        await AudioMixer.MixdownAsync(timeline, tempAudioPath);
+
+        string args = $"-y -f rawvideo -pix_fmt bgra -s {width}x{height} -r {fps} -i - -i \"{tempAudioPath}\" -c:v {profile.VideoCodec} -b:v {profile.VideoBitrateKbps}k -c:a {profile.AudioCodec} -b:a {profile.AudioBitrateKbps}k -pix_fmt yuv420p -shortest \"{outputPath}\"";
 
         var psi = new ProcessStartInfo("ffmpeg", args)
         {
@@ -62,6 +65,9 @@ public sealed class MediaExporter : IMediaExporter
         proc.StandardInput.Close();
         await proc.WaitForExitAsync();
         progress.Report(1.0);
+
+        if (File.Exists(tempAudioPath))
+            File.Delete(tempAudioPath);
 
         if (proc.ExitCode != 0)
             throw new InvalidOperationException($"ffmpeg exited with code {proc.ExitCode}.");

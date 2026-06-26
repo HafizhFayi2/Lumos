@@ -18,5 +18,7 @@
     <ProjectReference Include="..\Lumos.Domain\Lumos.Domain.csproj" />
     <ProjectReference Include="..\Lumos.AI\Lumos.AI.csproj" />
     <ProjectReference Include="..\Lumos.MCP\Lumos.MCP.csproj" />
+    <ProjectReference Include="..\Lumos.Infrastructure\Lumos.Infrastructure.csproj" />
+    <ProjectReference Include="..\Lumos.Media\Lumos.Media.csproj" />
   </ItemGroup>
 </Project>
