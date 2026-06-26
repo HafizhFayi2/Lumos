@@ -1,9 +1,11 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using SkiaSharp;
 using Lumos.Media;
 using Lumos.Infrastructure.Effects;
+using Lumos.Domain;
 
 namespace Lumos.Infrastructure;
 
@@ -15,11 +17,13 @@ public sealed class SkiaCompositor : IFrameCompositor, IDisposable
     private readonly SKCanvas  _canvas;
     private readonly int _width;
     private readonly int _height;
+    private readonly IFrameProvider? _frameProvider;
 
-    public SkiaCompositor(int width = 1920, int height = 1080)
+    public SkiaCompositor(int width = 1920, int height = 1080, IFrameProvider? frameProvider = null)
     {
         _width  = width;
         _height = height;
+        _frameProvider = frameProvider;
         var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
         _surface = SKSurface.Create(info);
         _canvas  = _surface.Canvas;
@@ -33,7 +37,7 @@ public sealed class SkiaCompositor : IFrameCompositor, IDisposable
         {
             if (slot.Opacity <= 0) continue;
 
-            SKBitmap? bitmap = await LoadBitmapAsync(slot.AssetPath);
+            SKBitmap? bitmap = await LoadBitmapAsync(slot);
             if (bitmap == null) continue;
 
             using (bitmap)
@@ -58,17 +62,27 @@ public sealed class SkiaCompositor : IFrameCompositor, IDisposable
         return decoded.Bytes;
     }
 
-    private static Task<SKBitmap?> LoadBitmapAsync(string path)
+    private async Task<SKBitmap?> LoadBitmapAsync(CompositionSlot slot)
     {
-        if (!File.Exists(path))
-            return Task.FromResult<SKBitmap?>(null);
+        if (slot.RenderType == ClipType.Video && _frameProvider != null)
+        {
+            var pixels = await _frameProvider.GetFrameAsync(slot.AssetPath, slot.SourceFrame, _width, _height);
+            if (pixels == null) return null;
+
+            var bitmap = new SKBitmap(new SKImageInfo(_width, _height, SKColorType.Bgra8888, SKAlphaType.Premul));
+            Marshal.Copy(pixels, 0, bitmap.GetPixels(), Math.Min(pixels.Length, bitmap.ByteCount));
+            return bitmap;
+        }
+
+        if (!File.Exists(slot.AssetPath))
+            return null;
         try
         {
-            return Task.FromResult<SKBitmap?>(SKBitmap.Decode(path));
+            return SKBitmap.Decode(slot.AssetPath);
         }
         catch
         {
-            return Task.FromResult<SKBitmap?>(null);
+            return null;
         }
     }
 

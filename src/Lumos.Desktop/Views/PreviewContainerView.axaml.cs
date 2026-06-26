@@ -12,6 +12,9 @@ namespace Lumos.Desktop.Views;
 public partial class PreviewContainerView : UserControl
 {
     private VideoEngine? _videoEngine;
+    private WriteableBitmap? _previewBitmap;
+    private const int PreviewW = 960;
+    private const int PreviewH = 540;
 
     public PreviewContainerView()
     {
@@ -35,21 +38,18 @@ public partial class PreviewContainerView : UserControl
         {
             try
             {
-                int width = 1920;
-                int height = 1080;
-                
-                var writeableBitmap = new WriteableBitmap(
-                    new PixelSize(width, height),
+                _previewBitmap ??= new WriteableBitmap(
+                    new PixelSize(PreviewW, PreviewH),
                     new Vector(96, 96),
                     PixelFormat.Bgra8888,
                     AlphaFormat.Premul);
 
-                using (var buf = writeableBitmap.Lock())
+                using (var buf = _previewBitmap.Lock())
                 {
-                    Marshal.Copy(pixelData, 0, buf.Address, pixelData.Length);
+                    Marshal.Copy(pixelData, 0, buf.Address, Math.Min(pixelData.Length, buf.RowBytes * PreviewH));
                 }
 
-                PreviewImage.Source = writeableBitmap;
+                PreviewImage.Source = _previewBitmap;
 
                 // Update timecode
                 int fps = 30; // Default or fetched from state

@@ -29,6 +29,11 @@ public partial class MainWindow : Window
     private TimelineInputController? _timelineController;
     private MainWindowViewModel VM => (MainWindowViewModel)DataContext!;
 
+    // Reused preview bitmap — allocated once to avoid per-frame GC pressure
+    private WriteableBitmap? _previewBitmap;
+    private const int PreviewW = 960;
+    private const int PreviewH = 540;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -255,21 +260,24 @@ public partial class MainWindow : Window
         {
             try
             {
-                int width = 1920, height = 1080;
-                var writeableBitmap = new WriteableBitmap(
-                    new PixelSize(width, height),
-                    new Vector(96, 96),
-                    PixelFormat.Bgra8888,
-                    AlphaFormat.Premul);
+                if (_previewBitmap == null)
+                {
+                    _previewBitmap = new WriteableBitmap(
+                        new PixelSize(PreviewW, PreviewH),
+                        new Vector(96, 96),
+                        PixelFormat.Bgra8888,
+                        AlphaFormat.Premul);
+                }
 
-                using (var buf = writeableBitmap.Lock())
-                    System.Runtime.InteropServices.Marshal.Copy(pixelData, 0, buf.Address, pixelData.Length);
+                using (var buf = _previewBitmap.Lock())
+                    System.Runtime.InteropServices.Marshal.Copy(pixelData, 0, buf.Address, Math.Min(pixelData.Length, buf.RowBytes * PreviewH));
 
                 var img = this.FindControl<Image>("PreviewImage");
-                if (img != null) img.Source = writeableBitmap;
+                // Force re-render by reassigning
+                if (img != null) img.Source = _previewBitmap;
             }
             catch { }
-        });
+        }, DispatcherPriority.Render);
     }
 
     // ── Import ───────────────────────────────────────────────────────────────

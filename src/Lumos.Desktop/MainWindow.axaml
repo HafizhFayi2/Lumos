@@ -742,14 +742,14 @@
                                 <Canvas/>
                               </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemContainerTheme>
-                              <ControlTheme TargetType="ContentPresenter">
+                            <ItemsControl.Styles>
+                              <Style Selector="ContentPresenter" x:DataType="vm:ClipViewModel">
                                 <Setter Property="Canvas.Left" Value="{Binding Left}"/>
                                 <Setter Property="Canvas.Top" Value="2"/>
                                 <Setter Property="Width" Value="{Binding Width}"/>
                                 <Setter Property="Height" Value="52"/>
-                              </ControlTheme>
-                            </ItemsControl.ItemContainerTheme>
+                              </Style>
+                            </ItemsControl.Styles>
                             <ItemsControl.ItemTemplate>
                               <DataTemplate>
                                 <Border CornerRadius="6"

@@ -33,6 +33,13 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
         {
             _composer.Load(timeline);
         }
+
+        // Rebuild composition whenever timeline changes
+        _store.StateChanged += (_, e) =>
+        {
+            if (e.ChangedField.HasFlag(StateField.Timeline))
+                Rebuild();
+        };
     }
 
     public void Rebuild()
@@ -46,6 +53,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
 
     public void Play()
     {
+        Console.WriteLine($"[VideoEngine] Play() called. Playhead: {_store.State.Playback.PlayheadFrame}, TotalFrames: {_store.State.TotalFrames}");
         lock (_playbackLock)
         {
             if (_store.State.Playback.IsPlaying) return;
@@ -249,6 +257,8 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
         int fps = _store.State.Fps > 0 ? _store.State.Fps : 30;
         int frameDurationMs = 1000 / fps;
 
+        Console.WriteLine($"[VideoEngine] Playback loop started. FPS: {fps}");
+
         while (!ct.IsCancellationRequested)
         {
             var startTime = DateTime.UtcNow;
@@ -258,6 +268,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
 
             if (currentFrame >= totalFrames)
             {
+                Console.WriteLine($"[VideoEngine] Reached end (Current: {currentFrame}, Total: {totalFrames}). Pausing.");
                 // Reached the end
                 _store.UpdatePlayback(p => p.SetPlayhead(0, totalFrames));
                 Pause();
@@ -267,11 +278,18 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
             int nextFrame = currentFrame + 1;
             _store.UpdatePlayback(p => p.SetPlayhead(nextFrame, totalFrames));
 
-            // Async render next frame
-            var pixelData = await GetCompositedFrameAsync(nextFrame, 1920, 1080);
-            if (pixelData != null)
+            try
             {
-                FrameComposited?.Invoke(nextFrame, pixelData);
+                // Render at preview resolution to stay responsive
+                var pixelData = await GetCompositedFrameAsync(nextFrame, 960, 540);
+                if (pixelData != null)
+                {
+                    FrameComposited?.Invoke(nextFrame, pixelData);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[VideoEngine] GetCompositedFrameAsync crashed: {ex}");
             }
 
             var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;

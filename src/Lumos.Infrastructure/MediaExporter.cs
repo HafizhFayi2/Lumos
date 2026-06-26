@@ -45,7 +45,8 @@ public sealed class MediaExporter : IMediaExporter
             while (await proc.StandardError.ReadLineAsync() != null) {}
         });
 
-        using var compositor = new SkiaCompositor(width, height);
+        using var frameProvider = new FrameProvider(new FrameCache());
+        using var compositor = new SkiaCompositor(width, height, frameProvider);
         var builder = new CompositionBuilder();
         builder.Load(timeline);
         

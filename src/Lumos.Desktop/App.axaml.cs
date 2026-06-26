@@ -76,7 +76,7 @@ public partial class App : Avalonia.Application
         var frameCache    = new FrameCache();
         var frameProvider = new FrameProvider(frameCache);
         var seekController = new SeekController();
-        var compositor    = new SkiaCompositor(1920, 1080);
+        var compositor    = new SkiaCompositor(960, 540, frameProvider);
         VideoEngine = new VideoEngine(EditorStore, frameProvider, seekController, compositor);
 
         // 3. Initial timeline
