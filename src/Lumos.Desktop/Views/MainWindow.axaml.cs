@@ -88,6 +88,10 @@ public partial class MainWindow : Window
         tracks.PointerPressed += OnTimelinePointerPressed;
         tracks.PointerMoved += OnTimelinePointerMoved;
         tracks.PointerReleased += OnTimelinePointerReleased;
+        
+        DragDrop.SetAllowDrop(tracks, true);
+        tracks.AddHandler(DragDrop.DragOverEvent, OnTimelineDragOver);
+        tracks.AddHandler(DragDrop.DropEvent, OnTimelineDrop);
 
         var scrollViewer = this.FindControl<ScrollViewer>("TimelineScrollViewer")!;
         scrollViewer.ScrollChanged += OnTimelineScrollChanged;
@@ -304,10 +308,25 @@ public partial class MainWindow : Window
 
     // ── Asset / Effect / Library ─────────────────────────────────────────────
 
-    private void OnAssetDoubleTapped(object? sender, TappedEventArgs e)
+    private async void OnAssetPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is Border border && border.DataContext is AssetViewModel assetVM)
-            AddAssetToTimeline(assetVM.Asset);
+        if (sender is Control control && control.DataContext is AssetViewModel assetVM)
+        {
+            var props = e.GetCurrentPoint(this).Properties;
+            if (props.IsLeftButtonPressed)
+            {
+                if (e.ClickCount == 2)
+                {
+                    AddAssetToTimeline(assetVM.Asset);
+                    e.Handled = true;
+                    return;
+                }
+
+                var dataObject = new DataObject();
+                dataObject.Set("AssetViewModel", assetVM);
+                await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+            }
+        }
     }
 
     private void AddAssetToTimeline(Asset asset)
@@ -446,6 +465,47 @@ public partial class MainWindow : Window
         if (_timelineController == null) return;
         _timelineController.OnMouseUp();
         e.Handled = true;
+    }
+
+    private void OnTimelineDragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains("AssetViewModel"))
+        {
+            e.DragEffects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
+    }
+
+    private void OnTimelineDrop(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains("AssetViewModel") && e.Data.Get("AssetViewModel") is AssetViewModel assetVM)
+        {
+            var tracksControl = this.FindControl<Grid>("TimelineTracksContainer");
+            if (tracksControl == null) return;
+            
+            var pt = e.GetPosition(tracksControl);
+            var timeline = App.EditorStore.State.Timeline.Timeline;
+            if (timeline == null) return;
+            
+            int trackIndex = Math.Max(0, (int)(pt.Y / 56.0));
+            string trackId = assetVM.Asset.Type == ClipType.Audio ? "A1" : "V1";
+            
+            if (trackIndex < timeline.Tracks.Count)
+            {
+                trackId = timeline.Tracks[trackIndex].Id;
+            }
+            
+            int frame = (int)(pt.X / Math.Max(1, VM.ZoomScale));
+            var command = new AddClipsAsyncCommand(new[] { assetVM.Asset }, trackId, frame);
+            App.CommandQueue.Enqueue(command);
+            
+            VM.McpActivityLogs.Insert(0, $"[Timeline] Dropped {assetVM.Asset.Name} on {trackId} at frame {frame}");
+            e.Handled = true;
+        }
     }
 
     private class TimelineViewContextAdapter : ITimelineViewContext

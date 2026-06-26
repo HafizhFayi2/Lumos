@@ -80,12 +80,8 @@ public partial class App : Avalonia.Application
         VideoEngine = new VideoEngine(EditorStore, frameProvider, seekController, compositor);
 
         // 3. Initial timeline
-        var timeline = new Timeline { Fps = 30, Width = 1920, Height = 1080 };
-        timeline.Tracks.Add(new Track { Id = "V2", Name = "V2", Type = ClipType.Video });
-        timeline.Tracks.Add(new Track { Id = "V1", Name = "V1", Type = ClipType.Video });
-        timeline.Tracks.Add(new Track { Id = "A1", Name = "A1", Type = ClipType.Audio });
-        timeline.Tracks.Add(new Track { Id = "A2", Name = "A2", Type = ClipType.Audio });
-
+        var timeline = new Timeline { Width = 1920, Height = 1080, Fps = 30 };
+        
         var projectId = Guid.NewGuid();
         EditorStore.SetProject(projectId, "Untitled Project", timeline);
         VideoEngine.Rebuild();

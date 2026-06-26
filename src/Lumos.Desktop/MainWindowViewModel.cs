@@ -254,27 +254,39 @@ public class MainWindowViewModel : ViewModelBase
 
     private void OnStateChanged(object? sender, StateChangedEventArgs e)
     {
-        LoadState(App.EditorStore.State);
-        ActiveToolMode = App.EditorStore.State.ToolMode;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            LoadState(App.EditorStore.State);
+            ActiveToolMode = App.EditorStore.State.ToolMode;
+        });
     }
 
     private void OnAssetAdded(object? sender, AssetEventArgs e)
     {
-        App.VideoEngine.Rebuild();
-        RefreshAssets();
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            App.VideoEngine.Rebuild();
+            RefreshAssets();
+        });
     }
 
     private void OnAssetRemoved(object? sender, AssetEventArgs e)
     {
-        App.VideoEngine.Rebuild();
-        RefreshAssets();
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            App.VideoEngine.Rebuild();
+            RefreshAssets();
+        });
     }
 
     private void OnCommandCompleted(object? sender, CommandCompletedEventArgs e)
     {
-        string logMsg = $"[{DateTime.Now:HH:mm:ss}] CommandExecuted: \"{e.Command.Label}\" -> Succeeded: {e.Result.Succeeded}";
-        McpActivityLogs.Insert(0, logMsg);
-        App.VideoEngine.Rebuild();
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            string logMsg = $"[{DateTime.Now:HH:mm:ss}] CommandExecuted: \"{e.Command.Label}\" -> Succeeded: {e.Result.Succeeded}";
+            McpActivityLogs.Insert(0, logMsg);
+            App.VideoEngine.Rebuild();
+        });
     }
 
     private void RefreshAssets()
@@ -484,12 +496,14 @@ public class ChatMessageViewModel : ViewModelBase
 public class TrackViewModel : ViewModelBase
 {
     public string Id { get; }
+    public string Name { get; }
     public string TypeLabel { get; }
     public ObservableCollection<ClipViewModel> Clips { get; } = new();
 
     public TrackViewModel(Track track)
     {
         Id = track.Id;
+        Name = track.Name;
         TypeLabel = track.Type == ClipType.Video ? "VIDEO" : "AUDIO";
     }
 

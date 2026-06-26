@@ -39,7 +39,7 @@ public sealed class AssetIndexer
             case ".mkv":
             case ".m4v":
                 asset.Type = ClipType.Video;
-                asset.Duration = EstimateVideoDuration(length);
+                asset.Duration = GetRealMediaDuration(filePath, EstimateVideoDuration(length));
                 asset.SourceWidth = 1920;
                 asset.SourceHeight = 1080;
                 asset.SourceFps = 30.0;
@@ -53,7 +53,7 @@ public sealed class AssetIndexer
             case ".flac":
             case ".ogg":
                 asset.Type = ClipType.Audio;
-                asset.Duration = EstimateAudioDuration(length);
+                asset.Duration = GetRealMediaDuration(filePath, EstimateAudioDuration(length));
                 asset.HasAudio = true;
                 break;
 
@@ -147,6 +147,36 @@ public sealed class AssetIndexer
     {
         double bytesPerSecond = 5 * 1024 * 1024;
         return Math.Max(1.0, Math.Round((double)fileLength / bytesPerSecond, 2));
+    }
+
+    private static double GetRealMediaDuration(string filePath, double defaultDuration)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "ffprobe",
+                Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{filePath}\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc == null) return defaultDuration;
+            
+            string output = proc.StandardOutput.ReadToEnd().Trim();
+            proc.WaitForExit();
+            
+            if (double.TryParse(output, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double duration))
+            {
+                return duration > 0 ? duration : defaultDuration;
+            }
+            return defaultDuration;
+        }
+        catch
+        {
+            return defaultDuration;
+        }
     }
 
     private static double EstimateAudioDuration(long fileLength)

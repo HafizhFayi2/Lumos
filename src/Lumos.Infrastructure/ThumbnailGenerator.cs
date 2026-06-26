@@ -25,7 +25,13 @@ public sealed class ThumbnailGenerator : IThumbnailGenerator
 
         if (File.Exists(target)) return target;
 
-        // Write a 160×90 BGRA raw placeholder (will be replaced by FFmpeg extraction)
+        if (asset.Type == ClipType.Image || asset.Type == ClipType.Video)
+        {
+            await ExtractFrameAsync(asset, target, asset.Type == ClipType.Video ? position : TimeSpan.Zero);
+            return target;
+        }
+
+        // Fallback for audio or unsupported
         await Task.Run(() =>
         {
             const int W = 160, H = 90;
@@ -34,6 +40,46 @@ public sealed class ThumbnailGenerator : IThumbnailGenerator
         });
 
         return target;
+    }
+
+    private async Task ExtractFrameAsync(Asset asset, string outPath, TimeSpan position)
+    {
+        try
+        {
+            string seconds = position.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var args = asset.Type == ClipType.Video
+                ? $"-y -ss {seconds} -i \"{asset.FilePath}\" -vframes 1 -vf \"scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2\" \"{outPath}\""
+                : $"-y -i \"{asset.FilePath}\" -vframes 1 -vf \"scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2\" \"{outPath}\"";
+            
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                Arguments = args,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc != null)
+            {
+                await proc.WaitForExitAsync();
+            }
+            if (!File.Exists(outPath))
+            {
+                throw new FileNotFoundException("FFmpeg failed to produce output.");
+            }
+        }
+        catch
+        {
+            // Silent fallback
+            await Task.Run(() =>
+            {
+                const int W = 160, H = 90;
+                byte[] data = GenerateCheckerboard(W, H);
+                WritePngRaw(outPath, W, H, data);
+            });
+        }
     }
 
     public async Task<List<string>> GenerateWaveformAsync(Asset asset)

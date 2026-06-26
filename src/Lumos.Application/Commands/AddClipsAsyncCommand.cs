@@ -29,11 +29,27 @@ public sealed class AddClipsAsyncCommand : TimelineCommand
     protected override void Apply(Timeline timeline, CommandContext context)
     {
         var targetTrack = timeline.Tracks.FirstOrDefault(t => t.Id == _trackId);
-        if (targetTrack == null) return;
+        if (targetTrack == null)
+        {
+            var newType = _assets.Any(a => a.Type == ClipType.Audio) ? ClipType.Audio : ClipType.Video;
+            string trackName = _trackId == "V1" ? "Utama" : (_trackId == "A1" ? "Audio Utama" : _trackId);
+            targetTrack = new Track { Id = _trackId, Name = trackName, Type = newType };
+            if (newType == ClipType.Audio)
+                timeline.Tracks.Add(targetTrack);
+            else
+                timeline.Tracks.Insert(0, targetTrack);
+        }
 
         Track? audioTrack = null;
         if (!string.IsNullOrEmpty(_linkedAudioTrackId))
+        {
             audioTrack = timeline.Tracks.FirstOrDefault(t => t.Id == _linkedAudioTrackId);
+            if (audioTrack == null)
+            {
+                audioTrack = new Track { Id = _linkedAudioTrackId, Name = _linkedAudioTrackId, Type = ClipType.Audio };
+                timeline.Tracks.Add(audioTrack);
+            }
+        }
 
         int currentStart = _startFrame;
 
