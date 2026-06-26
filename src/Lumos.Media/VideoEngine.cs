@@ -15,6 +15,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
     private readonly ISeekController _seekController;
     private readonly IFrameCompositor? _frameCompositor;
     private readonly CompositionBuilder _composer = new();
+    private readonly TimelineAudioPlayer _audioPlayer = new();
 
     private CancellationTokenSource? _playbackCts;
     private readonly object _playbackLock = new();
@@ -59,6 +60,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
             if (_store.State.Playback.IsPlaying) return;
 
             _store.UpdatePlayback(p => p.Play());
+            _audioPlayer.Play(_store.State.Timeline.Timeline, _store.State.Playback.PlayheadFrame);
             _playbackCts = new CancellationTokenSource();
             _ = PlaybackLoopAsync(_playbackCts.Token);
         }
@@ -71,6 +73,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
             if (!_store.State.Playback.IsPlaying) return;
 
             _store.UpdatePlayback(p => p.Pause());
+            _audioPlayer.Stop();
             _playbackCts?.Cancel();
             _playbackCts = null;
         }
@@ -88,6 +91,8 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
     {
         var totalFrames = _store.State.TotalFrames;
         _store.UpdatePlayback(p => p.SetPlayhead(frame, totalFrames));
+        if (_store.State.Playback.IsPlaying)
+            _audioPlayer.Play(_store.State.Timeline.Timeline, frame);
         
         _seekController.EnqueueSeek(frame, async f =>
         {
@@ -277,6 +282,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
 
             int nextFrame = currentFrame + 1;
             _store.UpdatePlayback(p => p.SetPlayhead(nextFrame, totalFrames));
+            _audioPlayer.Sync(_store.State.Timeline.Timeline, nextFrame);
 
             try
             {
@@ -312,6 +318,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
     public void Dispose()
     {
         Pause();
+        _audioPlayer.Dispose();
         if (_frameCompositor is IDisposable disposable)
         {
             disposable.Dispose();

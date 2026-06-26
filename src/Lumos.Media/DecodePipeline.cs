@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -6,7 +8,8 @@ namespace Lumos.Media;
 
 public sealed class DecodePipeline : IDisposable
 {
-    private readonly SemaphoreSlim _decodeSemaphore = new(4);
+    private const int DefaultSourceFps = 30;
+    private readonly SemaphoreSlim _decodeSemaphore = new(2);
     private bool _isDisposed;
 
     public async Task<byte[]> DecodeFrameAsync(
@@ -20,39 +23,101 @@ public sealed class DecodePipeline : IDisposable
         await _decodeSemaphore.WaitAsync(cancellationToken);
         try
         {
-            bool is4K = targetWidth >= 3840 || targetHeight >= 2160;
-            int simulatedDelayMs = is4K ? 15 : 5;
-            if (useGpuAcceleration)
-            {
-                simulatedDelayMs = Math.Max(1, simulatedDelayMs / 3);
-            }
-            await Task.Delay(simulatedDelayMs, cancellationToken);
+            if (!File.Exists(assetPath))
+                throw new FileNotFoundException("Media file not found.", assetPath);
 
-            int bufferSize = targetWidth * targetHeight * 4;
-            byte[] buffer = new byte[bufferSize];
-
-            const int checkSize = 64;
-            for (int y = 0; y < targetHeight; y++)
-            {
-                for (int x = 0; x < targetWidth; x++)
-                {
-                    int index = (y * targetWidth + x) * 4;
-                    bool isWhite = ((x / checkSize) + (y / checkSize) + frameIndex / 2) % 2 == 0;
-                    byte colorVal = (byte)(isWhite ? 220 : 40);
-
-                    buffer[index] = colorVal;
-                    buffer[index + 1] = colorVal;
-                    buffer[index + 2] = colorVal;
-                    buffer[index + 3] = 255;
-                }
-            }
-
-            return buffer;
+            return await DecodeFrameWithFfmpegAsync(
+                assetPath,
+                frameIndex,
+                targetWidth,
+                targetHeight,
+                cancellationToken);
         }
         finally
         {
             _decodeSemaphore.Release();
         }
+    }
+
+    private static async Task<byte[]> DecodeFrameWithFfmpegAsync(
+        string assetPath,
+        int frameIndex,
+        int targetWidth,
+        int targetHeight,
+        CancellationToken cancellationToken)
+    {
+        int byteCount = checked(targetWidth * targetHeight * 4);
+        var buffer = new byte[byteCount];
+        double seconds = Math.Max(0, frameIndex) / (double)DefaultSourceFps;
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = "ffmpeg",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        psi.ArgumentList.Add("-hide_banner");
+        psi.ArgumentList.Add("-loglevel");
+        psi.ArgumentList.Add("error");
+        psi.ArgumentList.Add("-ss");
+        psi.ArgumentList.Add(seconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+        psi.ArgumentList.Add("-i");
+        psi.ArgumentList.Add(assetPath);
+        psi.ArgumentList.Add("-frames:v");
+        psi.ArgumentList.Add("1");
+        psi.ArgumentList.Add("-vf");
+        psi.ArgumentList.Add($"scale={targetWidth}:{targetHeight}:force_original_aspect_ratio=decrease,pad={targetWidth}:{targetHeight}:(ow-iw)/2:(oh-ih)/2:black");
+        psi.ArgumentList.Add("-pix_fmt");
+        psi.ArgumentList.Add("bgra");
+        psi.ArgumentList.Add("-f");
+        psi.ArgumentList.Add("rawvideo");
+        psi.ArgumentList.Add("pipe:1");
+
+        using var process = Process.Start(psi)
+            ?? throw new InvalidOperationException("ffmpeg could not be started.");
+
+        using var _ = cancellationToken.Register(() =>
+        {
+            try
+            {
+                if (!process.HasExited) process.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+            }
+        });
+
+        string stderr = string.Empty;
+        var stderrTask = Task.Run(async () =>
+        {
+            stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
+        }, cancellationToken);
+
+        int offset = 0;
+        while (offset < byteCount)
+        {
+            int read = await process.StandardOutput.BaseStream.ReadAsync(
+                buffer.AsMemory(offset, byteCount - offset),
+                cancellationToken);
+            if (read == 0) break;
+            offset += read;
+        }
+
+        await process.WaitForExitAsync(cancellationToken);
+        await stderrTask;
+
+        if (process.ExitCode != 0 || offset < byteCount)
+        {
+            throw new InvalidOperationException(
+                string.IsNullOrWhiteSpace(stderr)
+                    ? $"ffmpeg decoded {offset}/{byteCount} bytes."
+                    : stderr.Trim());
+        }
+
+        return buffer;
     }
 
     public void Dispose()
