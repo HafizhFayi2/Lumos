@@ -1,4 +1,5 @@
 using Lumos.Domain;
+using Lumos.Application.Commands;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,7 +19,7 @@ public interface ITimelineViewContext
 
 public class TimelineInputController
 {
-    private readonly CommandDispatcher _dispatcher;
+    private readonly CommandQueue _queue;
     private readonly Timeline _timeline;
     private readonly LegacyEditorState _editorState;
     private readonly ITimelineViewContext _viewContext;
@@ -43,12 +44,12 @@ public class TimelineInputController
     private bool _scrubWasPlaying = false;
 
     public TimelineInputController(
-        CommandDispatcher dispatcher,
+        CommandQueue queue,
         Timeline timeline,
         LegacyEditorState editorState,
         ITimelineViewContext viewContext)
     {
-        _dispatcher = dispatcher;
+        _queue = queue;
         _timeline = timeline;
         _editorState = editorState;
         _viewContext = viewContext;
@@ -98,8 +99,8 @@ public class TimelineInputController
             {
                 int clickFrame = RazorPreviewFrame ?? geometry.GetFrameAt(point.X);
                 var clip = _timeline.Tracks[hit.Value.TrackIndex].Clips[hit.Value.ClipIndex];
-                var cmd = new SplitClipCommand(_timeline, clip.Id, clickFrame);
-                _dispatcher.Execute(cmd);
+                var cmd = new SplitClipAsyncCommand(clip.Id, clickFrame);
+                _queue.Enqueue(cmd);
                 _viewContext.RefreshView();
             }
             return;
@@ -405,8 +406,8 @@ public class TimelineInputController
                         int toTrackIndex = pinned.Contains(p.ClipId) ? item.trackIndex : item.trackIndex + delta;
                         if (toTrackIndex >= 0 && toTrackIndex < _timeline.Tracks.Count)
                         {
-                            var cmd = new MoveClipCommand(_timeline, p.ClipId, item.frame + frameDelta, _timeline.Tracks[toTrackIndex].Id);
-                            _dispatcher.Execute(cmd);
+                            var cmd = new MoveClipAsyncCommand(p.ClipId, item.frame + frameDelta, _timeline.Tracks[toTrackIndex].Id);
+                            _queue.Enqueue(cmd);
                         }
                     }
                 }
@@ -416,8 +417,8 @@ public class TimelineInputController
                 var trimL = trimLeftDrag.Drag;
                 if (trimL.DeltaFrames != 0)
                 {
-                    var cmd = new TrimClipCommand(_timeline, trimL.ClipId, trimL.OriginalTrimStart + trimL.DeltaFrames, trimL.OriginalTrimEnd);
-                    _dispatcher.Execute(cmd);
+                    var cmd = new TrimClipAsyncCommand(trimL.ClipId, trimL.OriginalTrimStart + trimL.DeltaFrames, trimL.OriginalTrimEnd);
+                    _queue.Enqueue(cmd);
                 }
                 break;
 
@@ -425,8 +426,8 @@ public class TimelineInputController
                 var trimR = trimRightDrag.Drag;
                 if (trimR.DeltaFrames != 0)
                 {
-                    var cmd = new TrimClipCommand(_timeline, trimR.ClipId, trimR.OriginalTrimStart, trimR.OriginalTrimEnd - trimR.DeltaFrames);
-                    _dispatcher.Execute(cmd);
+                    var cmd = new TrimClipAsyncCommand(trimR.ClipId, trimR.OriginalTrimStart, trimR.OriginalTrimEnd - trimR.DeltaFrames);
+                    _queue.Enqueue(cmd);
                 }
                 break;
         }

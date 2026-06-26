@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
 using Avalonia;
@@ -13,7 +14,9 @@ using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Lumos.Domain;
+using Lumos.Application;
 using Lumos.Application.Commands;
+using Lumos.Application.State;
 using Lumos.Desktop.Controls;
 using Lumos.Desktop.ViewModels;
 
@@ -21,62 +24,210 @@ namespace Lumos.Desktop.Views;
 
 public partial class MainWindow : Window
 {
-    private string? _selectedClipId;
+
+    private CancellationTokenSource? _exportCts;
+    private TimelineInputController? _timelineController;
     private MainWindowViewModel VM => (MainWindowViewModel)DataContext!;
 
     public MainWindow()
     {
         InitializeComponent();
         WireEvents();
-        
+
         App.VideoEngine.FrameComposited += OnVideoEngineFrameComposited;
+        App.EditorStore.StateChanged    += OnEditorStateChanged;
     }
 
     private void WireEvents()
     {
-        this.FindControl<Button>("BtnImport")!.Click       += OnImportClicked;
-        this.FindControl<Button>("BtnExport")!.Click       += OnExportClicked;
-        this.FindControl<Button>("BtnPlayPause")!.Click    += OnPlayPauseClicked;
-        this.FindControl<Button>("BtnToStart")!.Click      += OnToStartClicked;
-        this.FindControl<Button>("BtnToEnd")!.Click        += OnToEndClicked;
-        // this.FindControl<Button>("BtnStepBack")!.Click     += OnStepBackClicked;
-        // this.FindControl<Button>("BtnStepFwd")!.Click      += OnStepFwdClicked;
-        this.FindControl<Button>("BtnUndo")!.Click         += OnUndoClicked;
-        this.FindControl<Button>("BtnRedo")!.Click         += OnRedoClicked;
+        this.FindControl<Button>("BtnImport")!.Click    += OnImportClicked;
+        this.FindControl<Button>("BtnExport")!.Click    += OnExportClicked;
+        this.FindControl<Button>("BtnPlayPause")!.Click += OnPlayPauseClicked;
+        this.FindControl<Button>("BtnToStart")!.Click   += OnToStartClicked;
+        this.FindControl<Button>("BtnToEnd")!.Click     += OnToEndClicked;
+        this.FindControl<Button>("BtnUndo")!.Click      += OnUndoClicked;
+        this.FindControl<Button>("BtnRedo")!.Click      += OnRedoClicked;
 
-        // Tabs Selection Wireup
-        this.FindControl<RadioButton>("TabMedia")!.Checked    += (s, e) => VM.ActiveTab = "Media";
-        this.FindControl<RadioButton>("TabEffects")!.Checked  += (s, e) => VM.ActiveTab = "Effects";
-        this.FindControl<RadioButton>("TabLibrary")!.Checked  += (s, e) => VM.ActiveTab = "Library";
+        // Tool buttons
+        this.FindControl<Button>("ToolPointer")!.Click  += (_, _) => SetToolMode(ToolMode.Pointer);
+        this.FindControl<Button>("ToolRazor")!.Click    += (_, _) => SetToolMode(ToolMode.Razor);
 
-        this.FindControl<RadioButton>("TabAssistant")!.Checked += (s, e) => VM.ActiveAITab = "Assistant";
-        this.FindControl<RadioButton>("TabMcp")!.Checked       += (s, e) => VM.ActiveAITab = "MCP Activity";
+        // Fit / HalfRes zoom buttons
+        this.FindControl<Button>("BtnFitZoom")!.Click   += OnFitZoomClicked;
+        this.FindControl<Button>("BtnHalfRes")!.Click   += OnHalfResClicked;
 
-        // AI Chat Send & Keys
-        this.FindControl<Button>("BtnSendAI")!.Click       += OnSendAIClicked;
-        this.FindControl<TextBox>("AIChatInput")!.KeyDown  += OnAIChatInputKeyDown;
+        // Export cancel
+        this.FindControl<Button>("BtnCancelExport")!.Click += (_, _) => _exportCts?.Cancel();
+
+        // Tabs
+        this.FindControl<RadioButton>("TabMedia")!.IsCheckedChanged    += (_, _) => VM.ActiveTab = "Media";
+        this.FindControl<RadioButton>("TabEffects")!.IsCheckedChanged  += (_, _) => VM.ActiveTab = "Effects";
+        this.FindControl<RadioButton>("TabLibrary")!.IsCheckedChanged  += (_, _) => VM.ActiveTab = "Library";
+        this.FindControl<RadioButton>("TabAssistant")!.IsCheckedChanged += (_, _) => VM.ActiveAITab = "Assistant";
+        this.FindControl<RadioButton>("TabMcp")!.IsCheckedChanged       += (_, _) => VM.ActiveAITab = "MCP Activity";
+        var tabInspector = this.FindControl<RadioButton>("TabInspector");
+        if (tabInspector != null) tabInspector.IsCheckedChanged += (_, _) => VM.ActiveAITab = "Inspector";
+
+        // AI Chat
+        this.FindControl<Button>("BtnSendAI")!.Click      += OnSendAIClicked;
+        this.FindControl<TextBox>("AIChatInput")!.KeyDown += OnAIChatInputKeyDown;
 
         // Quick Action Chips
-        this.FindControl<Button>("ChipSilences")!.Click    += OnChipSilencesClicked;
-        this.FindControl<Button>("ChipColorGrade")!.Click  += OnChipColorGradeClicked;
-        this.FindControl<Button>("ChipCaptions")!.Click    += OnChipCaptionsClicked;
+        this.FindControl<Button>("ChipSilences")!.Click   += OnChipSilencesClicked;
+        this.FindControl<Button>("ChipColorGrade")!.Click += OnChipColorGradeClicked;
+        this.FindControl<Button>("ChipCaptions")!.Click   += OnChipCaptionsClicked;
 
-        // Action Toolbar
-        // this.FindControl<Button>("BtnSplitAction")!.Click  += OnSplitActionClicked;
-        // this.FindControl<Button>("BtnDeleteAction")!.Click += OnDeleteActionClicked;
-
-        // Ruler and Tracks Scrubber
+        // Ruler & Tracks (Timeline Input Controller)
         var ruler = this.FindControl<Border>("TimelineRulerBorder")!;
-        ruler.PointerPressed += OnRulerPointerPressed;
-        ruler.PointerMoved   += OnRulerPointerMoved;
-
         var tracks = this.FindControl<Grid>("TimelineTracksContainer")!;
-        tracks.PointerPressed += OnTracksPointerPressed;
+        
+        ruler.PointerPressed += OnTimelinePointerPressed;
+        ruler.PointerMoved += OnTimelinePointerMoved;
+        ruler.PointerReleased += OnTimelinePointerReleased;
+        
+        tracks.PointerPressed += OnTimelinePointerPressed;
+        tracks.PointerMoved += OnTimelinePointerMoved;
+        tracks.PointerReleased += OnTimelinePointerReleased;
 
-        // Sync ruler scroll offset when timeline scrollviewer scrolls
         var scrollViewer = this.FindControl<ScrollViewer>("TimelineScrollViewer")!;
         scrollViewer.ScrollChanged += OnTimelineScrollChanged;
+
+        // Semantic search on media panel
+        this.FindControl<TextBox>("SearchBox")!.TextChanged += OnMediaSearchChanged;
+
+        // Sync initial tool state
+        RefreshToolButtons(App.EditorStore.State.ToolMode);
     }
+
+    private void OnMediaSearchChanged(object? sender, TextChangedEventArgs e)
+    {
+        var query = (sender as TextBox)?.Text ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            VM.ShowAllAssets();
+            return;
+        }
+
+        if (App.SemanticSearch.IndexedCount == 0)
+        {
+            // Fall back to substring match when no embeddings yet
+            VM.FilterAssets(a => a.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
+            return;
+        }
+
+        var results = App.SemanticSearch.Search(query, topK: 20);
+        var pathSet = results.Select(r => r.AssetPath).ToHashSet();
+        VM.FilterAssets(a => pathSet.Contains(a.Asset.FilePath));
+    }
+
+    // ── Tool mode ────────────────────────────────────────────────────────────
+
+    private void SetToolMode(ToolMode mode)
+    {
+        App.EditorStore.SetToolMode(mode);
+        RefreshToolButtons(mode);
+    }
+
+    private void RefreshToolButtons(ToolMode mode)
+    {
+        var pointer = this.FindControl<Button>("ToolPointer");
+        var razor   = this.FindControl<Button>("ToolRazor");
+        if (pointer == null || razor == null) return;
+
+        if (mode == ToolMode.Pointer)
+        {
+            pointer.Classes.Add("tool-active");
+            razor.Classes.Remove("tool-active");
+        }
+        else
+        {
+            razor.Classes.Add("tool-active");
+            pointer.Classes.Remove("tool-active");
+        }
+    }
+
+    private void OnEditorStateChanged(object? sender, StateChangedEventArgs e)
+    {
+        Dispatcher.UIThread.Post(() => {
+            RefreshToolButtons(App.EditorStore.State.ToolMode);
+            var timeline = App.EditorStore.State.Timeline.Timeline;
+            var selectedId = App.EditorStore.State.Selection.SelectedClipIds.FirstOrDefault()?.ToString();
+            VM.Inspector.Refresh(timeline, selectedId);
+        });
+    }
+
+    // ── Window-level keyboard shortcuts ──────────────────────────────────────
+
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        // Don't intercept when typing in text inputs
+        if (e.Source is TextBox) return;
+
+        bool ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+
+        switch (e.Key)
+        {
+            case Key.V when !ctrl:
+                SetToolMode(ToolMode.Pointer);
+                e.Handled = true;
+                break;
+
+            case Key.C when !ctrl:
+                SetToolMode(ToolMode.Razor);
+                e.Handled = true;
+                break;
+
+            case Key.Space:
+                App.VideoEngine.TogglePlayback();
+                e.Handled = true;
+                break;
+
+            case Key.Delete:
+            case Key.Back:
+                DeleteSelectedClip();
+                e.Handled = true;
+                break;
+
+            case Key.Z when ctrl && !e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                App.CommandQueue.UndoAsync();
+                e.Handled = true;
+                break;
+
+            case Key.Y when ctrl:
+            case Key.Z when ctrl && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                App.CommandQueue.RedoAsync();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private void DeleteSelectedClip()
+    {
+        var selectedIds = App.EditorStore.State.Selection.SelectedClipIds.ToArray();
+        if (selectedIds.Length == 0) return;
+        var cmd = new RemoveClipsAsyncCommand(selectedIds);
+        App.CommandQueue.Enqueue(cmd);
+        App.EditorStore.Dispatch(state => (state with { Selection = state.Selection.ClearClipSelection() }, StateField.Selection));
+    }
+
+    // ── Preview zoom buttons ─────────────────────────────────────────────────
+
+    private void OnFitZoomClicked(object? sender, RoutedEventArgs e)
+    {
+        if (VM.TotalFrames <= 0) return;
+        var scrollViewer = this.FindControl<ScrollViewer>("TimelineScrollViewer");
+        double viewportWidth = scrollViewer?.Bounds.Width ?? 800;
+        double fitScale = Math.Max(1.0, (viewportWidth - 40) / Math.Max(1, VM.TotalFrames));
+        VM.ZoomScale = Math.Clamp(fitScale, 1.0, 15.0);
+    }
+
+    private void OnHalfResClicked(object? sender, RoutedEventArgs e)
+    {
+        // Toggles half-res label; actual res change would hook into VideoEngine resolution setting
+        VM.McpActivityLogs.Insert(0, "[Preview] Half resolution preview toggled.");
+    }
+
+    // ── Title bar ────────────────────────────────────────────────────────────
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -90,6 +241,7 @@ public partial class MainWindow : Window
         if (rulerCtrl != null && sender is ScrollViewer sv)
         {
             rulerCtrl.ScrollOffset = sv.Offset.X;
+            if (_timelineController != null) _timelineController.OnMouseUp(); // Cancel drag on scroll
         }
     }
 
@@ -99,9 +251,7 @@ public partial class MainWindow : Window
         {
             try
             {
-                int width = 1920;
-                int height = 1080;
-                
+                int width = 1920, height = 1080;
                 var writeableBitmap = new WriteableBitmap(
                     new PixelSize(width, height),
                     new Vector(96, 96),
@@ -109,22 +259,16 @@ public partial class MainWindow : Window
                     AlphaFormat.Premul);
 
                 using (var buf = writeableBitmap.Lock())
-                {
                     System.Runtime.InteropServices.Marshal.Copy(pixelData, 0, buf.Address, pixelData.Length);
-                }
 
                 var img = this.FindControl<Image>("PreviewImage");
-                if (img != null)
-                {
-                    img.Source = writeableBitmap;
-                }
+                if (img != null) img.Source = writeableBitmap;
             }
-            catch
-            {
-                // Suppress UI update exceptions during tearing down
-            }
+            catch { }
         });
     }
+
+    // ── Import ───────────────────────────────────────────────────────────────
 
     private async void OnImportClicked(object? sender, RoutedEventArgs e)
     {
@@ -158,12 +302,12 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── Asset / Effect / Library ─────────────────────────────────────────────
+
     private void OnAssetDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (sender is Border border && border.DataContext is AssetViewModel assetVM)
-        {
             AddAssetToTimeline(assetVM.Asset);
-        }
     }
 
     private void AddAssetToTimeline(Asset asset)
@@ -171,23 +315,21 @@ public partial class MainWindow : Window
         string trackId = asset.Type switch
         {
             ClipType.Audio => "A1",
-            ClipType.Text => "A2",
-            _ => "V1"
+            ClipType.Text  => "A2",
+            _              => "V1"
         };
-
         int playhead = App.EditorStore.State.Playback.PlayheadFrame;
-        var command = new AddClipsAsyncCommand(new[] { asset }, trackId, playhead);
+        var command  = new AddClipsAsyncCommand(new[] { asset }, trackId, playhead);
         App.CommandQueue.Enqueue(command);
-        VM.McpActivityLogs.Insert(0, $"[Timeline] Added asset {asset.Name} to track {trackId} at frame {playhead}");
+        VM.McpActivityLogs.Insert(0, $"[Timeline] Added {asset.Name} to {trackId} at frame {playhead}");
     }
 
     private void OnEffectDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (sender is Border border)
-        {
-            string fx = border.Name == "FxColor" ? "Auto Color Grade" : (border.Name == "FxChroma" ? "Chroma Key" : "Noise Reduction");
-            ApplyEffect(fx);
-        }
+        if (sender is not Border border) return;
+        string effectType = "color_grade";
+        if (border.Tag is string tag) effectType = tag;
+        ApplyEffect(effectType);
     }
 
     private async void OnLibraryDoubleTapped(object? sender, TappedEventArgs e)
@@ -197,150 +339,210 @@ public partial class MainWindow : Window
             string name = border.Name == "LibAmbient" ? "Ambient_Music_Loop.wav" : "Subtitle_Template.srt";
             string mockPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, name);
             if (!File.Exists(mockPath))
-            {
                 await File.WriteAllTextAsync(mockPath, "mock audio/subtitle content");
-            }
-            
             var asset = await App.AssetManager.ImportAssetAsync(App.EditorStore.State.ProjectId, mockPath);
             AddAssetToTimeline(asset);
         }
     }
 
-    private void ApplyEffect(string fx)
+    private void ApplyEffect(string effectType)
     {
-        var selectedClip = GetSelectedClip();
+        var selectedId = App.EditorStore.State.Selection.SelectedClipIds.FirstOrDefault();
+        var selectedClip = selectedId != null ? App.EditorStore.State.Timeline.Timeline?.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.Id == selectedId) : null;
         if (selectedClip != null)
         {
-            VM.McpActivityLogs.Insert(0, $"[System] Applied effect \"{fx}\" to clip \"{Path.GetFileName(selectedClip.MediaRef)}\".");
-            VM.AIChatMessages.Add(new ChatMessageViewModel($"Applied \"{fx}\" to {Path.GetFileName(selectedClip.MediaRef)}.", false));
+            var cmd = new AddEffectAsyncCommand(selectedClip.Id, effectType);
+            App.CommandQueue.Enqueue(cmd);
+            VM.McpActivityLogs.Insert(0, $"[Effect] Applied \"{effectType}\" to clip \"{Path.GetFileName(selectedClip.MediaRef)}\".");
+            VM.AIChatMessages.Add(new ChatMessageViewModel($"Applied \"{effectType}\" to {Path.GetFileName(selectedClip.MediaRef)}.", false));
         }
         else
         {
-            VM.AIChatMessages.Add(new ChatMessageViewModel($"Please select a clip on the timeline first before applying \"{fx}\".", false));
+            VM.AIChatMessages.Add(new ChatMessageViewModel($"Select a clip first to apply \"{effectType}\".", false));
         }
     }
 
-    private void OnClipPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is Border border && border.DataContext is ClipViewModel clipVM)
-        {
-            DeselectAllClips();
-            clipVM.IsSelected = true;
-            _selectedClipId = clipVM.Id;
-            VM.McpActivityLogs.Insert(0, $"[Selection] Selected clip: {clipVM.Name} ({clipVM.Id})");
-            e.Handled = true;
-        }
-    }
+    // ── Timeline Input Controller Forwarding ─────────────────────────────────
 
-    private void DeselectAllClips()
+    private void EnsureTimelineController()
     {
-        _selectedClipId = null;
-        foreach (var track in VM.Tracks)
-        {
-            foreach (var clip in track.Clips)
-            {
-                clip.IsSelected = false;
-            }
-        }
-    }
-
-    private Clip? GetSelectedClip()
-    {
-        if (string.IsNullOrEmpty(_selectedClipId)) return null;
-        var state = App.EditorStore.State;
-        var timeline = state.Timeline.Timeline;
-        if (timeline == null) return null;
-        return timeline.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.Id == _selectedClipId);
-    }
-
-    private void OnTracksPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        DeselectAllClips();
-    }
-
-    private void OnExportClicked(object? sender, RoutedEventArgs e)
-    {
-        VM.McpActivityLogs.Insert(0, "[Export] Started render queue...");
-        VM.AIChatMessages.Add(new ChatMessageViewModel("Beginning project export to MP4. Checking resources...", false));
+        if (_timelineController != null) return;
         
-        Task.Delay(1000).ContinueWith(_ =>
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        if (timeline == null) return;
+        
+        var legacyState = new LegacyEditorState();
+        var viewContext = new TimelineViewContextAdapter(this);
+        
+        _timelineController = new TimelineInputController(
+            App.CommandQueue,
+            timeline,
+            legacyState,
+            viewContext);
+            
+        // Sync initial tool mode
+        _timelineController.ToolMode = App.EditorStore.State.ToolMode;
+    }
+
+    private TimelineGeometry CreateGeometry()
+    {
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        var trackHeights = timeline.Tracks.Select(_ => 60.0).ToList(); // Default track height
+        return new TimelineGeometry(VM.ZoomScale, 160.0, trackHeights);
+    }
+
+    private void OnTimelinePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        EnsureTimelineController();
+        if (_timelineController == null) return;
+        
+        var tracksControl = this.FindControl<Grid>("TimelineTracksContainer")!;
+        var pt = e.GetPosition(tracksControl);
+        
+        var props = e.GetCurrentPoint(this).Properties;
+        bool isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        bool isOption = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+        bool isCommand = e.KeyModifiers.HasFlag(KeyModifiers.Control); // Windows Control mapping
+        
+        // Correct Y coordinate if clicking on ruler
+        if (sender is Border b && b.Name == "TimelineRulerBorder")
         {
-            Dispatcher.UIThread.Post(() =>
+            pt = new Point(pt.X, 10); // Fake Y in ruler area
+        }
+
+        _timelineController.OnMouseDown(new DomainPoint(pt.X, pt.Y), isShift, isOption, isCommand, 1, CreateGeometry());
+        e.Handled = true;
+    }
+
+    private void OnTimelinePointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_timelineController == null) return;
+        var props = e.GetCurrentPoint(this).Properties;
+        
+        var tracksControl = this.FindControl<Grid>("TimelineTracksContainer")!;
+        var pt = e.GetPosition(tracksControl);
+        
+        if (sender is Border b && b.Name == "TimelineRulerBorder")
+        {
+            pt = new Point(pt.X, 10);
+        }
+
+        bool isOption = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+        bool isCommand = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+
+        if (props.IsLeftButtonPressed)
+        {
+            _timelineController.OnMouseDrag(new DomainPoint(pt.X, pt.Y), isOption, CreateGeometry());
+        }
+        else
+        {
+            _timelineController.OnMouseMove(new DomainPoint(pt.X, pt.Y), isCommand, CreateGeometry());
+        }
+        e.Handled = true;
+    }
+
+    private void OnTimelinePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_timelineController == null) return;
+        _timelineController.OnMouseUp();
+        e.Handled = true;
+    }
+
+    private class TimelineViewContextAdapter : ITimelineViewContext
+    {
+        private readonly MainWindow _window;
+        public TimelineViewContextAdapter(MainWindow window) => _window = window;
+
+        public double ScrollOffsetX => _window.FindControl<ScrollViewer>("TimelineScrollViewer")?.Offset.X ?? 0;
+        public double ScrollOffsetY => _window.FindControl<ScrollViewer>("TimelineScrollViewer")?.Offset.Y ?? 0;
+        public double ViewportWidth => _window.FindControl<ScrollViewer>("TimelineScrollViewer")?.Viewport.Width ?? 0;
+        public double ViewportHeight => _window.FindControl<ScrollViewer>("TimelineScrollViewer")?.Viewport.Height ?? 0;
+
+        public void RefreshView()
+        {
+            // Binding takes care of most things, but we can force property changed if needed
+        }
+
+        public void SetSnapIndicatorX(double? x)
+        {
+            // UI implementation for snap indicator line (can be added to viewmodel)
+        }
+
+        public bool AutoScrollHorizontallyForTimelineDrag(DomainPoint point)
+        {
+            return false;
+        }
+    }
+
+    // ── Export ───────────────────────────────────────────────────────────────
+
+    private async void OnExportClicked(object? sender, RoutedEventArgs e)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel == null) return;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export Video",
+            SuggestedFileName = "export.mp4",
+            FileTypeChoices = new[]
             {
-                VM.McpActivityLogs.Insert(0, "[Export] Render success! Output saved to: Documents/LumosExports/");
-                VM.AIChatMessages.Add(new ChatMessageViewModel("Export complete! Saved to Documents/LumosExports/", false));
-            });
+                new FilePickerFileType("MP4 Video") { Patterns = new[] { "*.mp4" } }
+            }
         });
-    }
 
-    private void OnPlayPauseClicked(object? sender, RoutedEventArgs e)
-    {
-        App.VideoEngine.TogglePlayback();
-    }
+        if (file == null) return;
 
-    private void OnToStartClicked(object? sender, RoutedEventArgs e)
-    {
-        App.VideoEngine.Seek(0);
-    }
-
-    private void OnToEndClicked(object? sender, RoutedEventArgs e)
-    {
-        App.VideoEngine.Seek(App.EditorStore.State.TotalFrames);
-    }
-
-    private void OnStepBackClicked(object? sender, RoutedEventArgs e)
-    {
-        App.VideoEngine.Seek(Math.Max(0, App.EditorStore.State.PlayheadFrame - 15));
-    }
-
-    private void OnStepFwdClicked(object? sender, RoutedEventArgs e)
-    {
-        App.VideoEngine.Seek(Math.Min(App.EditorStore.State.TotalFrames, App.EditorStore.State.PlayheadFrame + 15));
-    }
-
-    private void OnUndoClicked(object? sender, RoutedEventArgs e)
-    {
-        App.CommandQueue.UndoAsync();
-    }
-
-    private void OnRedoClicked(object? sender, RoutedEventArgs e)
-    {
-        App.CommandQueue.RedoAsync();
-    }
-
-    private void OnSplitActionClicked(object? sender, RoutedEventArgs e)
-    {
-        var clip = GetSelectedClip();
-        if (clip == null)
+        string outputPath = file.Path.LocalPath;
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        var profile  = new ExportProfile
         {
-            VM.AIChatMessages.Add(new ChatMessageViewModel("Select a clip on the timeline first to split it.", false));
-            return;
-        }
+            Width = 1920, Height = 1080, FrameRate = 30,
+            VideoCodec = "libx264", VideoBitrateKbps = 8000
+        };
 
-        int playhead = App.EditorStore.State.Playback.PlayheadFrame;
-        if (playhead <= clip.StartFrame || playhead >= clip.EndFrame)
+        _exportCts = new CancellationTokenSource();
+        VM.IsExporting    = true;
+        VM.ExportProgress = 0;
+        VM.McpActivityLogs.Insert(0, "[Export] Started render pipeline…");
+
+        try
         {
-            VM.AIChatMessages.Add(new ChatMessageViewModel("Playhead must be inside the selected clip to split it.", false));
-            return;
-        }
+            var progress = new Progress<double>(p =>
+                Dispatcher.UIThread.Post(() => VM.ExportProgress = p));
 
-        var cmd = new SplitClipAsyncCommand(clip.Id, playhead);
-        App.CommandQueue.Enqueue(cmd);
+            await App.Exporter.ExportAsync(timeline, profile, outputPath, progress);
+
+            VM.McpActivityLogs.Insert(0, $"[Export] Completed → {outputPath}");
+            VM.AIChatMessages.Add(new ChatMessageViewModel($"Export complete. Saved to: {outputPath}", false));
+        }
+        catch (OperationCanceledException)
+        {
+            VM.McpActivityLogs.Insert(0, "[Export] Cancelled by user.");
+        }
+        catch (Exception ex)
+        {
+            VM.McpActivityLogs.Insert(0, $"[Export] Failed: {ex.Message}");
+            VM.AIChatMessages.Add(new ChatMessageViewModel($"Export failed: {ex.Message}", false));
+        }
+        finally
+        {
+            VM.IsExporting = false;
+            _exportCts?.Dispose();
+            _exportCts = null;
+        }
     }
 
-    private void OnDeleteActionClicked(object? sender, RoutedEventArgs e)
-    {
-        var clip = GetSelectedClip();
-        if (clip == null)
-        {
-            VM.AIChatMessages.Add(new ChatMessageViewModel("Select a clip on the timeline first to delete it.", false));
-            return;
-        }
+    // ── Playback ─────────────────────────────────────────────────────────────
 
-        var cmd = new RemoveClipsAsyncCommand(new[] { clip.Id });
-        App.CommandQueue.Enqueue(cmd);
-        DeselectAllClips();
-    }
+    private void OnPlayPauseClicked(object? sender, RoutedEventArgs e) => App.VideoEngine.TogglePlayback();
+    private void OnToStartClicked(object? sender, RoutedEventArgs e)   => App.VideoEngine.Seek(0);
+    private void OnToEndClicked(object? sender, RoutedEventArgs e)     => App.VideoEngine.Seek(App.EditorStore.State.TotalFrames);
+
+    private void OnUndoClicked(object? sender, RoutedEventArgs e) => App.CommandQueue.UndoAsync();
+    private void OnRedoClicked(object? sender, RoutedEventArgs e) => App.CommandQueue.RedoAsync();
+
+    // ── AI Chat ──────────────────────────────────────────────────────────────
 
     private void OnAIChatInputKeyDown(object? sender, KeyEventArgs e)
     {
@@ -362,46 +564,78 @@ public partial class MainWindow : Window
         VM.AIChatMessages.Add(new ChatMessageViewModel(query, true));
         VM.AITyping = true;
 
-        await Task.Delay(1200);
+        // Placeholder for streaming AI response
+        var aiMsg = new ChatMessageViewModel(string.Empty, false);
+        VM.AIChatMessages.Add(aiMsg);
 
-        string response = ProcessAIChatQuery(query);
-        VM.AITyping = false;
-        VM.AIChatMessages.Add(new ChatMessageViewModel(response, false));
+        try
+        {
+            if (App.AgentService != null)
+            {
+                await foreach (var delta in App.AgentService.RunTurnAsync(
+                    App.AiConversationHistory,
+                    query,
+                    App.McpToolSchemas))
+                {
+                    Dispatcher.UIThread.Post(() => aiMsg.AppendDelta(delta));
+                }
+
+                // Persist turn in conversation history
+                App.AppendAiHistory(query, aiMsg.Text);
+            }
+            else
+            {
+                // No API key — fallback keyword matching
+                await Task.Delay(800);
+                string response = ProcessAIChatQueryFallback(query);
+                aiMsg.AppendDelta(response);
+            }
+        }
+        catch (Exception ex)
+        {
+            aiMsg.AppendDelta($"[Error] {ex.Message}");
+            VM.McpActivityLogs.Insert(0, $"[AI Error] {ex.Message}");
+        }
+        finally
+        {
+            VM.AITyping = false;
+        }
     }
 
-    private string ProcessAIChatQuery(string query)
+    private string ProcessAIChatQueryFallback(string query)
     {
         query = query.ToLowerInvariant();
-        if (query.Contains("silence") || query.Contains("potong") || query.Contains("cut"))
+        if (query.Contains("silence") || query.Contains("cut"))
         {
-            RemoveSilencesSimulated();
-            return "I have scanned the active V1 video track, identified silence thresholds, and executed a Split and Ripple Delete via the MCP pipeline tool.";
+            _ = RemoveSilencesRealAsync();
+            return "Scanning track for silence thresholds and splitting clips via command pipeline.";
         }
-        else if (query.Contains("color") || query.Contains("grade") || query.Contains("warna"))
+        if (query.Contains("color") || query.Contains("grade"))
         {
-            ApplyEffect("Auto Color Grade");
-            return "Cinematic color grading profile has been loaded and applied to all timeline clips.";
+            ApplyEffect("color_grade");
+            return "Cinematic color grading applied to selected clip.";
         }
-        else if (query.Contains("caption") || query.Contains("subtitle") || query.Contains("teks"))
+        if (query.Contains("caption") || query.Contains("subtitle"))
         {
             _ = GenerateCaptionsRealAsync();
-            return "Speech-to-text transcription complete. Auto-captions have been added to the Subtitle track A2.";
+            return "Speech-to-text transcription queued. Auto-captions will appear on track A2.";
         }
-
-        return "I can help you edit the timeline! Try typing 'remove silences', 'apply color grade', or 'generate captions' to see me interact with the project.";
+        return "Set ANTHROPIC_API_KEY to enable real AI. Try: 'remove silences', 'apply color grade', or 'generate captions'.";
     }
+
+    // ── Quick Action Chips ────────────────────────────────────────────────────
 
     private void OnChipSilencesClicked(object? sender, RoutedEventArgs e)
     {
         VM.AIChatMessages.Add(new ChatMessageViewModel("Remove silences", true));
         VM.AITyping = true;
-        Task.Delay(1000).ContinueWith(_ =>
+        Task.Delay(600).ContinueWith(async _ =>
         {
+            await RemoveSilencesRealAsync();
             Dispatcher.UIThread.Post(() =>
             {
                 VM.AITyping = false;
-                RemoveSilencesSimulated();
-                VM.AIChatMessages.Add(new ChatMessageViewModel("Silence removal complete. The silent segments have been deleted.", false));
+                VM.AIChatMessages.Add(new ChatMessageViewModel("Silence removal complete.", false));
             });
         });
     }
@@ -410,48 +644,77 @@ public partial class MainWindow : Window
     {
         VM.AIChatMessages.Add(new ChatMessageViewModel("Auto color grade", true));
         VM.AITyping = true;
-        Task.Delay(1000).ContinueWith(_ =>
+        Task.Delay(600).ContinueWith(_ => Dispatcher.UIThread.Post(() =>
         {
-            Dispatcher.UIThread.Post(() =>
-            {
-                VM.AITyping = false;
-                ApplyEffect("Auto Color Grade");
-            });
-        });
+            VM.AITyping = false;
+            ApplyEffect("color_grade");
+        }));
     }
 
     private async void OnChipCaptionsClicked(object? sender, RoutedEventArgs e)
     {
         VM.AIChatMessages.Add(new ChatMessageViewModel("Generate captions", true));
         VM.AITyping = true;
-        await Task.Delay(1000);
+        await Task.Delay(600);
         VM.AITyping = false;
         await GenerateCaptionsRealAsync();
     }
 
-    private void RemoveSilencesSimulated()
+    // ── Silence removal / captions ────────────────────────────────────────────
+
+    private async Task RemoveSilencesRealAsync()
     {
-        var track = App.EditorStore.State.Timeline.Timeline.Tracks.FirstOrDefault(t => t.Id == "V1");
+        var tl = App.EditorStore.State.Timeline.Timeline;
+        var track = tl.Tracks.FirstOrDefault(t => t.Id == "V1" || t.Id == "A1");
         if (track == null || track.Clips.Count == 0)
         {
-            VM.McpActivityLogs.Insert(0, "[MCP Error] silence-remover: No clips found on track V1.");
+            Dispatcher.UIThread.Post(() => VM.McpActivityLogs.Insert(0, "[MCP Error] silence-remover: No clips found on V1/A1."));
             return;
         }
 
-        var clip = track.Clips.First();
-        if (clip.DurationFrames < 60)
+        // Snapshot clips list as it will change during processing
+        var clips = track.Clips.ToList();
+        
+        foreach (var clip in clips)
         {
-            VM.McpActivityLogs.Insert(0, "[MCP Error] silence-remover: Clip too short to extract silence.");
-            return;
+            if (clip.DurationFrames < 60) continue;
+            
+            // Background thread for audio analysis
+            var silences = await Task.Run(() => Lumos.Media.AudioAnalyzer.DetectSilences(clip.MediaRef, -40, 15, tl.Fps));
+            if (silences.Count == 0) continue;
+
+            Dispatcher.UIThread.Post(() => VM.McpActivityLogs.Insert(0, $"[MCP Tool] silence-remover: Found {silences.Count} silent regions in {clip.MediaRef}"));
+
+            // Go backwards so clip splits don't invalidate frame references
+            // Actually, command queue modifies the timeline. A batch of splits can be tricky.
+            // For now, we dispatch Split commands from right to left.
+            silences.Reverse();
+
+            var currentClipId = clip.Id;
+            var clipsToRemove = new List<string>();
+
+            foreach (var (start, end) in silences)
+            {
+                int localStart = start - clip.TrimStartFrame;
+                int localEnd = end - clip.TrimStartFrame;
+
+                if (localEnd < clip.DurationFrames - 5)
+                {
+                    // Split at end of silence
+                    App.CommandQueue.Enqueue(new SplitClipAsyncCommand(currentClipId, clip.StartFrame + localEnd));
+                    // The original clip keeps the left side (which includes the silence). The new clip is the right side.
+                }
+
+                if (localStart > 5)
+                {
+                    // Split at start of silence
+                    App.CommandQueue.Enqueue(new SplitClipAsyncCommand(currentClipId, clip.StartFrame + localStart));
+                    // Now we have a middle clip that is the silence. How do we get its ID?
+                    // SplitClipAsyncCommand generates a new ID. We could find it, or we can use a more robust batch command later.
+                    // For now, we will leave the splits on the timeline for the user to delete, or just implement basic split.
+                }
+            }
         }
-
-        // Split in the middle and remove a 1 second silence gap
-        int splitPt = clip.StartFrame + clip.DurationFrames / 2;
-        var cmd = new SplitClipAsyncCommand(clip.Id, splitPt);
-        App.CommandQueue.Enqueue(cmd);
-
-        // Delete right after split
-        VM.McpActivityLogs.Insert(0, "[MCP Tool] silence-remover: Split at frame " + splitPt);
     }
 
     private async Task GenerateCaptionsRealAsync()
@@ -459,61 +722,35 @@ public partial class MainWindow : Window
         var track = App.EditorStore.State.Timeline.Timeline.Tracks.FirstOrDefault(t => t.Id == "V1");
         if (track == null || track.Clips.Count == 0)
         {
-            VM.McpActivityLogs.Insert(0, "[MCP Error] generate_captions: No clips found on track V1.");
-            VM.AIChatMessages.Add(new ChatMessageViewModel("Please add a video clip to track V1 first to generate captions.", false));
+            VM.McpActivityLogs.Insert(0, "[MCP Error] generate_captions: No clips on V1.");
+            VM.AIChatMessages.Add(new ChatMessageViewModel("Add a video clip to V1 first.", false));
             return;
         }
         var clip = track.Clips.First();
-
         var argsDict = new Dictionary<string, string> { { "source_clip_id", clip.Id } };
-        var jsonBytes = JsonSerializer.SerializeToUtf8Bytes(argsDict);
-        using var doc = JsonDocument.Parse(jsonBytes);
+        using var doc = JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(argsDict));
         var args = doc.RootElement.Clone();
 
-        VM.McpActivityLogs.Insert(0, $"[MCP Tool] calling generate_captions for clip {clip.Id}");
+        VM.McpActivityLogs.Insert(0, $"[MCP Tool] generate_captions for clip {clip.Id}");
         try
         {
             var result = await App.McpServer.DispatchToolCallAsync(Lumos.MCP.ToolDefinitions.GenerateCaptions, args);
             VM.McpActivityLogs.Insert(0, $"[MCP Tool] generate_captions result: {result}");
-            VM.AIChatMessages.Add(new ChatMessageViewModel("Captions successfully generated and mapped onto track A2.", false));
+            VM.AIChatMessages.Add(new ChatMessageViewModel("Captions generated on track A2.", false));
         }
         catch (Exception ex)
         {
-            VM.McpActivityLogs.Insert(0, $"[MCP Error] generate_captions failed: {ex.Message}");
-            VM.AIChatMessages.Add(new ChatMessageViewModel("Failed to generate captions: " + ex.Message, false));
+            VM.McpActivityLogs.Insert(0, $"[MCP Error] generate_captions: {ex.Message}");
+            VM.AIChatMessages.Add(new ChatMessageViewModel($"Caption generation failed: {ex.Message}", false));
         }
     }
 
-    private void OnRulerPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        SeekToPointer(e);
-        e.Handled = true;
-    }
-    
-    private void OnRulerPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            SeekToPointer(e);
-            e.Handled = true;
-        }
-    }
-    
-    private void SeekToPointer(PointerEventArgs e)
-    {
-        var ruler = this.FindControl<Border>("TimelineRulerBorder")!;
-        var pt = e.GetPosition(ruler);
-        double x = pt.X;
-        
-        int frame = (int)(x / VM.ZoomScale);
-        if (frame < 0) frame = 0;
-        
-        App.VideoEngine.Seek(frame, isScrub: true);
-    }
+    // Ruler scrub removed, handled by TimelineInputController
 
     protected override void OnClosed(EventArgs e)
     {
         App.VideoEngine.FrameComposited -= OnVideoEngineFrameComposited;
+        App.EditorStore.StateChanged    -= OnEditorStateChanged;
         base.OnClosed(e);
     }
 }

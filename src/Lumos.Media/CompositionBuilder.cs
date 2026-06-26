@@ -38,7 +38,8 @@ public sealed class CompositionBuilder
                     Volume:     clip.VolumeAt(timelineFrame),
                     Transform:  clip.TransformAt(timelineFrame),
                     Crop:       clip.CropAt(timelineFrame),
-                    RenderType: clip.MediaType
+                    RenderType: clip.MediaType,
+                    Effects:    clip.Effects
                 );
 
                 if (clip.MediaType == ClipType.Audio)

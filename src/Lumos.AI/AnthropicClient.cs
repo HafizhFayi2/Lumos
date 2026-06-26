@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -36,12 +37,58 @@ public sealed class AnthropicClient : IAgentClient
         ReadFromSettingsFile();
 #endif
 
+    public static void SaveApiKey(string key)
+    {
+        var datPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "LumosDesktop", "anthropic_key.dat");
+        
+        Directory.CreateDirectory(Path.GetDirectoryName(datPath)!);
+        byte[] encrypted = ProtectedData.Protect(Encoding.UTF8.GetBytes(key), null, DataProtectionScope.CurrentUser);
+        File.WriteAllBytes(datPath, encrypted);
+        
+        // Cleanup old txt if exists
+        var txtPath = Path.Combine(Path.GetDirectoryName(datPath)!, "anthropic_key.txt");
+        if (File.Exists(txtPath)) File.Delete(txtPath);
+    }
+
     private static string? ReadFromSettingsFile()
     {
-        var path = Path.Combine(
+        var datPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "LumosDesktop", "anthropic_key.dat");
+            
+        if (File.Exists(datPath))
+        {
+            try
+            {
+                byte[] encrypted = File.ReadAllBytes(datPath);
+                byte[] decrypted = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(decrypted).Trim();
+            }
+            catch
+            {
+                // Decryption failed (e.g. moved to different machine)
+                return null;
+            }
+        }
+
+        // Fallback to legacy plaintext for migration
+        var txtPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "LumosDesktop", "anthropic_key.txt");
-        return File.Exists(path) ? File.ReadAllText(path).Trim() : null;
+            
+        if (File.Exists(txtPath))
+        {
+            string key = File.ReadAllText(txtPath).Trim();
+            if (!string.IsNullOrEmpty(key))
+            {
+                SaveApiKey(key); // Auto-migrate to encrypted
+                return key;
+            }
+        }
+        
+        return null;
     }
 
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(

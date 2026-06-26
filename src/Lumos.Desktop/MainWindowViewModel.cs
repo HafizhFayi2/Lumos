@@ -152,27 +152,65 @@ public class MainWindowViewModel : ViewModelBase
     public bool IsLibraryTabActive => ActiveTab == "Library";
 
     // AI tabs
-    private string _activeAITab = "Assistant";
+    private string _activeAITab = "Inspector";
     public string ActiveAITab
     {
         get => _activeAITab;
         set
         {
-            if (SetProperty(ref _activeAITab, value))
+            if (_activeAITab != value)
             {
+                _activeAITab = value;
+                OnPropertyChanged();
                 OnPropertyChanged(nameof(IsAssistantTabActive));
                 OnPropertyChanged(nameof(IsMcpTabActive));
+                OnPropertyChanged(nameof(IsInspectorTabActive));
             }
         }
     }
 
     public bool IsAssistantTabActive => ActiveAITab == "Assistant";
     public bool IsMcpTabActive => ActiveAITab == "MCP Activity";
+    public bool IsInspectorTabActive => ActiveAITab == "Inspector";
 
     public ObservableCollection<AssetViewModel> Assets { get; } = new();
     public ObservableCollection<TrackViewModel> Tracks { get; } = new();
+    
+    public InspectorViewModel Inspector { get; } = new();
+
     public ObservableCollection<ChatMessageViewModel> AIChatMessages { get; } = new();
     public ObservableCollection<string> McpActivityLogs { get; } = new();
+
+    private ToolMode _activeToolMode = ToolMode.Pointer;
+    public ToolMode ActiveToolMode
+    {
+        get => _activeToolMode;
+        set
+        {
+            if (SetProperty(ref _activeToolMode, value))
+            {
+                OnPropertyChanged(nameof(IsPointerActive));
+                OnPropertyChanged(nameof(IsRazorActive));
+            }
+        }
+    }
+
+    public bool IsPointerActive => ActiveToolMode == ToolMode.Pointer;
+    public bool IsRazorActive   => ActiveToolMode == ToolMode.Razor;
+
+    private bool _isExporting;
+    public bool IsExporting
+    {
+        get => _isExporting;
+        set => SetProperty(ref _isExporting, value);
+    }
+
+    private double _exportProgress;
+    public double ExportProgress
+    {
+        get => _exportProgress;
+        set => SetProperty(ref _exportProgress, value);
+    }
 
     private bool _aiTyping;
     public bool AITyping
@@ -200,6 +238,7 @@ public class MainWindowViewModel : ViewModelBase
     private void OnStateChanged(object? sender, StateChangedEventArgs e)
     {
         LoadState(App.EditorStore.State);
+        ActiveToolMode = App.EditorStore.State.ToolMode;
     }
 
     private void OnAssetAdded(object? sender, AssetEventArgs e)
@@ -227,6 +266,20 @@ public class MainWindowViewModel : ViewModelBase
         foreach (var asset in App.AssetManager.Catalog.GetAll())
         {
             Assets.Add(new AssetViewModel(asset));
+        }
+        HasAssets = Assets.Count > 0;
+    }
+
+    public void ShowAllAssets() => RefreshAssets();
+
+    public void FilterAssets(Func<AssetViewModel, bool> predicate)
+    {
+        Assets.Clear();
+        foreach (var asset in App.AssetManager.Catalog.GetAll())
+        {
+            var vm = new AssetViewModel(asset);
+            if (predicate(vm))
+                Assets.Add(vm);
         }
         HasAssets = Assets.Count > 0;
     }
@@ -387,7 +440,13 @@ public class ClipViewModel : ViewModelBase
 
 public class ChatMessageViewModel : ViewModelBase
 {
-    public string Text { get; }
+    private string _text;
+    public string Text
+    {
+        get => _text;
+        set => SetProperty(ref _text, value);
+    }
+
     public bool IsUser { get; }
     public string Time { get; }
 
@@ -397,10 +456,12 @@ public class ChatMessageViewModel : ViewModelBase
 
     public ChatMessageViewModel(string text, bool isUser)
     {
-        Text = text;
+        _text = text;
         IsUser = isUser;
         Time = DateTime.Now.ToString("HH:mm");
     }
+
+    public void AppendDelta(string delta) => Text += delta;
 }
 
 public class TrackViewModel : ViewModelBase

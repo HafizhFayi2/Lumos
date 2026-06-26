@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using SkiaSharp;
 using Lumos.Media;
+using Lumos.Infrastructure.Effects;
 
 namespace Lumos.Infrastructure;
 
@@ -37,13 +38,15 @@ public sealed class SkiaCompositor : IFrameCompositor, IDisposable
 
             using (bitmap)
             {
+                var processed = EffectRendererRegistry.Default.ApplyStack(bitmap, slot.Effects, frame.TimelineFrame);
                 var destRect = new SKRect(0, 0, _width, _height);
                 using var paint = new SKPaint
                 {
                     FilterQuality = SKFilterQuality.Low,
                     Color = new SKColor(255, 255, 255, (byte)Math.Clamp(slot.Opacity * 255, 0, 255)),
                 };
-                _canvas.DrawBitmap(bitmap, destRect, paint);
+                _canvas.DrawBitmap(processed, destRect, paint);
+                if (!ReferenceEquals(processed, bitmap)) processed.Dispose();
             }
         }
 

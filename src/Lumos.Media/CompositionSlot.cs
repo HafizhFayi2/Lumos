@@ -11,5 +11,6 @@ public sealed record CompositionSlot(
     double Volume,
     Transform Transform,
     Crop Crop,
-    ClipType RenderType
+    ClipType RenderType,
+    IReadOnlyList<Effect> Effects
 );

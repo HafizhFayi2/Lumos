@@ -126,6 +126,17 @@ public sealed class TimelineTools
         return await EnqueueAsync(cmd, ct);
     }
 
+    [McpServerTool(Name = ToolDefinitions.ApplyEffect)]
+    [Description("Apply an effect to a specific clip. Args: clip_id (string), effect_type (string, e.g. color_grade, glow, clarity, vignette).")]
+    public async Task<string> ApplyEffectAsync(JsonElement args, CancellationToken ct = default)
+    {
+        if (!TryGetString(args, "clip_id", out var clipId) || !TryGetString(args, "effect_type", out var effectType))
+            return Error("apply_effect requires clip_id (string) and effect_type (string)");
+
+        var cmd = new AddEffectAsyncCommand(clipId!, effectType!);
+        return await EnqueueAsync(cmd, ct);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private async Task<string> EnqueueAsync(IAsyncCommand cmd, CancellationToken ct)

@@ -1,6 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:Lumos.Desktop.ViewModels"
+        xmlns:vm="clr-namespace:Lumos.Desktop.ViewModels"
+        xmlns:v="clr-namespace:Lumos.Desktop.Views"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="using:Lumos.Desktop.Controls"
         x:Class="Lumos.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -12,7 +14,8 @@
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="PreferSystemChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
-        FontFamily="Inter, Segoe UI Variable, Segoe UI, sans-serif">
+        FontFamily="Inter, Segoe UI Variable, Segoe UI, sans-serif"
+        KeyDown="OnWindowKeyDown">
 
   <Window.Styles>
 
@@ -48,6 +51,12 @@
     </Style>
     <Style Selector="RadioButton.tab:pointerover">
       <Setter Property="Foreground" Value="#e2e8f0"/>
+    </Style>
+
+    <!-- Tool button active state -->
+    <Style Selector="Button.icon.tool-active">
+      <Setter Property="Foreground" Value="#3b82f6"/>
+      <Setter Property="Background" Value="#1e3a8a22"/>
     </Style>
 
     <!-- Icon button -->
@@ -182,6 +191,29 @@
       <Setter Property="Height" Value="1"/>
       <Setter Property="Background" Value="#3f3f46"/>
       <Setter Property="Margin" Value="0"/>
+    </Style>
+
+    <!-- Caption/Subtitle track clip styling -->
+    <Style Selector="Border.caption-clip">
+      <Setter Property="Background" Value="#1a2744"/>
+      <Setter Property="BorderBrush" Value="#3b82f6"/>
+      <Setter Property="BorderThickness" Value="0,0,0,2"/>
+    </Style>
+    <Style Selector="TextBlock.caption-clip-label">
+      <Setter Property="Foreground" Value="#93c5fd"/>
+      <Setter Property="FontSize" Value="9"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+    </Style>
+    <!-- Caption track header styling -->
+    <Style Selector="Border.caption-track-header">
+      <Setter Property="Background" Value="#111827"/>
+      <Setter Property="BorderBrush" Value="#1e3a5f"/>
+      <Setter Property="BorderThickness" Value="0,0,1,0"/>
+    </Style>
+    <Style Selector="TextBlock.caption-track-name">
+      <Setter Property="Foreground" Value="#60a5fa"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
   </Window.Styles>
@@ -436,12 +468,8 @@
             
             <!-- Fit / Res buttons at top-right -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16,12" Spacing="4">
-              <Border BorderThickness="1" BorderBrush="#3f3f46" Background="#121214" Padding="8,4" CornerRadius="4">
-                <TextBlock Text="Fit" FontSize="11" Foreground="#64748b"/>
-              </Border>
-              <Border BorderThickness="1" BorderBrush="#3f3f46" Background="#121214" Padding="8,4" CornerRadius="4">
-                <TextBlock Text="1/2 Res" FontSize="11" Foreground="#64748b"/>
-              </Border>
+              <Button Classes="secondary" Name="BtnFitZoom" Padding="8,4" CornerRadius="4" FontSize="11">Fit</Button>
+              <Button Classes="secondary" Name="BtnHalfRes" Padding="8,4" CornerRadius="4" FontSize="11">1/2 Res</Button>
             </StackPanel>
 
             <!-- No-timeline placeholder -->
@@ -463,6 +491,23 @@
                   <Ellipse Width="6" Height="6" Fill="#a855f7"/>
                   <TextBlock Text="AI ENHANCING" Foreground="#a855f7" FontSize="10" FontWeight="Bold" LetterSpacing="1"/>
                </StackPanel>
+            </Border>
+
+            <!-- Export progress overlay -->
+            <Border IsVisible="{Binding IsExporting}"
+                    Background="#CC000000" ZIndex="50"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    CornerRadius="10" Padding="28,18" MinWidth="240">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Exporting…" Foreground="#f8fafc" FontSize="13" FontWeight="SemiBold"
+                           HorizontalAlignment="Center"/>
+                <ProgressBar Minimum="0" Maximum="1"
+                             Value="{Binding ExportProgress}"
+                             Height="6" CornerRadius="3"
+                             Foreground="#3b82f6" Background="#27272a"/>
+                <Button Classes="secondary" Name="BtnCancelExport"
+                        HorizontalAlignment="Center" Padding="14,5" FontSize="12">Cancel</Button>
+              </StackPanel>
             </Border>
 
           </Grid>
@@ -509,12 +554,19 @@
         <Border Grid.Row="0" Background="#09090b" BorderBrush="#3f3f46"
                 BorderThickness="0,0,0,1" Padding="16,0">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Stretch">
+            <RadioButton Classes="tab" GroupName="AITab" Content="Inspector"
+                         IsChecked="{Binding IsInspectorTabActive, Mode=OneWay}" Name="TabInspector"/>
             <RadioButton Classes="tab" GroupName="AITab" Content="Assistant"
                          IsChecked="{Binding IsAssistantTabActive, Mode=OneWay}" Name="TabAssistant"/>
-            <RadioButton Classes="tab" GroupName="AITab" Content="MCP Activity"
+            <RadioButton Classes="tab" GroupName="AITab" Content="MCP"
                          IsChecked="{Binding IsMcpTabActive, Mode=OneWay}" Name="TabMcp"/>
           </StackPanel>
         </Border>
+
+        <!-- Inspector Tab -->
+        <Grid Grid.Row="1" IsVisible="{Binding IsInspectorTabActive}">
+            <v:InspectorView DataContext="{Binding Inspector}"/>
+        </Grid>
 
         <!-- Chat (Assistant tab) -->
         <Grid Grid.Row="1" IsVisible="{Binding IsAssistantTabActive}">
@@ -617,8 +669,8 @@
           <Grid ColumnDefinitions="*,Auto" Margin="10,0">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4"
                         VerticalAlignment="Center">
-              <Button Classes="icon" Name="ToolPointer" ToolTip.Tip="Pointer (V)" Foreground="#3b82f6" FontSize="15">↖</Button>
-              <Button Classes="icon" Name="ToolRazor"   ToolTip.Tip="Razor (C)" FontSize="15">✂</Button>
+              <Button Classes="icon" Name="ToolPointer" ToolTip.Tip="Pointer (V)" FontSize="15">↖</Button>
+              <Button Classes="icon" Name="ToolRazor"   ToolTip.Tip="Razor (C)"   FontSize="15">✂</Button>
               <Button Classes="icon" Name="ToolSlip"    ToolTip.Tip="Slip trim" FontSize="15">[ ]</Button>
               <Border Classes="vsep" Margin="8,8"/>
               <Button Classes="icon" Name="ToolMagnet"  ToolTip.Tip="Toggle snapping" Foreground="#3b82f6" FontSize="15">⊡</Button>
@@ -699,7 +751,6 @@
                                           Canvas.Left="{Binding Left}"
                                           Width="{Binding Width}"
                                           Cursor="Hand"
-                                          PointerPressed="OnClipPointerPressed"
                                           BoxShadow="0 4 8 0 #60000000">
                                     <Border CornerRadius="6"
                                             BorderThickness="1,1,1,2"

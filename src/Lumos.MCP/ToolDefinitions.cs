@@ -14,6 +14,7 @@ public static class ToolDefinitions
     public const string ImportMedia      = "import_media";
     public const string ExportVideo      = "export_video";
     public const string GenerateCaptions = "generate_captions";
+    public const string ApplyEffect      = "apply_effect";
 
     public static readonly IReadOnlyDictionary<string, string> Descriptions =
         new Dictionary<string, string>
@@ -28,5 +29,6 @@ public static class ToolDefinitions
             [ImportMedia]      = "Add a media file to the timeline on a new or existing track.",
             [ExportVideo]      = "Render and export the timeline to an MP4 file.",
             [GenerateCaptions] = "Parse an SRT file alongside a video clip and add subtitle clips to the A2 track. Args: source_clip_id (string).",
+            [ApplyEffect]      = "Apply an effect to a specific clip. Args: clip_id (string), effect_type (string, e.g. color_grade, glow, clarity, vignette)."
         };
 }

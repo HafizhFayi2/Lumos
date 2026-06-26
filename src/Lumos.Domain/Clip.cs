@@ -24,6 +24,8 @@ public sealed class Clip
 
     public Transform Transform { get; set; } = new();
     public Crop Crop { get; set; } = new();
+    
+    public List<Effect> Effects { get; set; } = new();
 
     public string? LinkGroupId { get; set; }
     public string? CaptionGroupId { get; set; }
@@ -179,6 +181,7 @@ public sealed class Clip
         c.RotationTrack = RotationTrack?.Clone();
         c.CropTrack     = CropTrack?.Clone();
         c.VolumeTrack   = VolumeTrack?.Clone();
+        c.Effects       = Effects.Select(e => e.Clone()).ToList();
         return c;
     }
 
