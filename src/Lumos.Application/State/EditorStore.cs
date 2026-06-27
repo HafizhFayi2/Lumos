@@ -148,6 +148,35 @@ public sealed class EditorStore
         RaiseChanged(StateField.DragState);
     }
 
+    // ── Track property toggles ──────────────────────────────────────────────
+
+    public void MuteTimeline(string label, string trackId)
+    {
+        MutateTimeline(label, t =>
+        {
+            var track = t.Tracks.FirstOrDefault(tr => tr.Id == trackId);
+            if (track != null) track.IsMuted = !track.IsMuted;
+        });
+    }
+
+    public void HideTimeline(string label, string trackId)
+    {
+        MutateTimeline(label, t =>
+        {
+            var track = t.Tracks.FirstOrDefault(tr => tr.Id == trackId);
+            if (track != null) track.IsHidden = !track.IsHidden;
+        });
+    }
+
+    public void LockTimeline(string label, string trackId)
+    {
+        MutateTimeline(label, t =>
+        {
+            var track = t.Tracks.FirstOrDefault(tr => tr.Id == trackId);
+            if (track != null) track.IsSyncLocked = !track.IsSyncLocked;
+        });
+    }
+
     // ── Undo / Redo ─────────────────────────────────────────────────────────
 
     public void Undo()

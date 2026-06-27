@@ -13,7 +13,7 @@ public interface ITimelineViewContext
     double ViewportWidth { get; }
     double ViewportHeight { get; }
     void RefreshView();
-    void SetSnapIndicatorX(double? x);
+    void SetSnapIndicatorX(double? x, int? frame = null, string? label = null);
     bool AutoScrollHorizontallyForTimelineDrag(DomainPoint point);
 }
 
@@ -27,13 +27,15 @@ public class TimelineInputController
     public DragState DragState { get; private set; } = new DragState.Idle();
     
     private double? _snapIndicatorX;
+    private int? _snapIndicatorFrame;
+    private string? _snapIndicatorLabel;
     public double? SnapIndicatorX
     {
         get => _snapIndicatorX;
         private set
         {
             _snapIndicatorX = value;
-            _viewContext.SetSnapIndicatorX(value);
+            _viewContext.SetSnapIndicatorX(value, _snapIndicatorFrame, _snapIndicatorLabel);
         }
     }
 
@@ -41,7 +43,6 @@ public class TimelineInputController
 
     private SnapState _snapState = new();
     private SnapState _razorSnapState = new();
-    private bool _scrubWasPlaying = false;
 
     public TimelineInputController(
         CommandQueue queue,
@@ -264,11 +265,15 @@ public class TimelineInputController
                 var moveSnap = SnapEngine.FindSnap(candidateFrame, probeOffsets, moveTargets, ref _snapState, Snap.ThresholdPixels, geometry.PixelsPerFrame);
                 if (moveSnap.HasValue)
                 {
+                    _snapIndicatorFrame = moveSnap.Value.Frame;
+                    _snapIndicatorLabel = $"F:{moveSnap.Value.Frame}";
                     SnapIndicatorX = moveSnap.Value.X;
                     drag.DeltaFrames = (moveSnap.Value.Frame - moveSnap.Value.ProbeOffset) - drag.Lead.OriginalFrame;
                 }
                 else
                 {
+                    _snapIndicatorFrame = null;
+                    _snapIndicatorLabel = null;
                     SnapIndicatorX = null;
                     drag.DeltaFrames = candidateFrame - drag.Lead.OriginalFrame;
                 }
@@ -296,11 +301,15 @@ public class TimelineInputController
                 var trimLSnap = SnapEngine.FindSnap(framePos, new List<int> { 0 }, trimLTargets, ref _snapState, Snap.ThresholdPixels, geometry.PixelsPerFrame);
                 if (trimLSnap.HasValue)
                 {
+                    _snapIndicatorFrame = trimLSnap.Value.Frame;
+                    _snapIndicatorLabel = $"F:{trimLSnap.Value.Frame}";
                     SnapIndicatorX = trimLSnap.Value.X;
                     snappedStart = trimLSnap.Value.Frame;
                 }
                 else
                 {
+                    _snapIndicatorFrame = null;
+                    _snapIndicatorLabel = null;
                     SnapIndicatorX = null;
                 }
                 int deltaL = snappedStart - trimL.OriginalStartFrame;
@@ -318,11 +327,15 @@ public class TimelineInputController
                 var trimRSnap = SnapEngine.FindSnap(candidateEnd, new List<int> { 0 }, trimRTargets, ref _snapState, Snap.ThresholdPixels, geometry.PixelsPerFrame);
                 if (trimRSnap.HasValue)
                 {
+                    _snapIndicatorFrame = trimRSnap.Value.Frame;
+                    _snapIndicatorLabel = $"F:{trimRSnap.Value.Frame}";
                     SnapIndicatorX = trimRSnap.Value.X;
                     snappedEnd = trimRSnap.Value.Frame;
                 }
                 else
                 {
+                    _snapIndicatorFrame = null;
+                    _snapIndicatorLabel = null;
                     SnapIndicatorX = null;
                 }
                 trimR.DeltaFrames = snappedEnd - originalEndFrame;
@@ -433,6 +446,8 @@ public class TimelineInputController
         }
 
         DragState = new DragState.Idle();
+        _snapIndicatorFrame = null;
+        _snapIndicatorLabel = null;
         SnapIndicatorX = null;
         _viewContext.RefreshView();
     }

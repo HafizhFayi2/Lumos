@@ -4,6 +4,7 @@
         xmlns:v="clr-namespace:Lumos.Desktop.Views"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="using:Lumos.Desktop.Controls"
+        xmlns:local="using:Lumos.Desktop"
         x:Class="Lumos.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title=""
@@ -683,26 +684,39 @@
         </Border>
 
         <Grid Grid.Row="1" ColumnDefinitions="120,*" Background="#0a0a0c">
-          <!-- Track headers (static left column) -->
+          <!-- Track headers (static left column) with mute/hide/lock buttons -->
           <Border Grid.Column="0" Background="#18181b" BorderBrush="#3f3f46"
                   BorderThickness="0,0,1,0" ZIndex="2"
                   BoxShadow="4 0 12 0 #40000000">
             <StackPanel Margin="0,28,0,0">
               <ItemsControl ItemsSource="{Binding Tracks}">
                 <ItemsControl.ItemTemplate>
-                  <DataTemplate>
+                  <DataTemplate x:DataType="vm:TrackViewModel">
                     <Border Height="56" BorderBrush="#27272a" BorderThickness="0,0,0,1"
-                            Padding="12,0" Background="#18181b">
-                      <StackPanel Spacing="2" VerticalAlignment="Center">
-                        <Grid ColumnDefinitions="*,Auto">
-                          <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="#f8fafc"
-                                     FontSize="11" FontWeight="Bold"/>
-                          <Border Grid.Column="1" Width="10" Height="10" BorderBrush="#64748b" BorderThickness="1" CornerRadius="2">
-                             <Ellipse Width="4" Height="4" Fill="#64748b" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                          </Border>
-                        </Grid>
-                        <TextBlock Classes="track-type" Text="{Binding TypeLabel}"/>
-                      </StackPanel>
+                            Padding="0" Background="#18181b">
+                      <Grid ColumnDefinitions="3,*,Auto">
+                        <!-- Track info -->
+                        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center" Margin="8,0,0,0">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="#f8fafc"
+                                       FontSize="11" FontWeight="Bold"/>
+                          </Grid>
+                          <TextBlock Classes="track-type" Text="{Binding TypeLabel}"/>
+                        </StackPanel>
+                        <!-- Track control buttons: M / H / L -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"
+                                    VerticalAlignment="Center" Margin="0,0,6,0">
+                          <Button Classes="icon" Width="18" Height="18" Padding="0" FontSize="9" FontWeight="Bold"
+                                  Foreground="#F59E0B" ToolTip.Tip="Toggle Mute" Tag="{Binding TrackId}"
+                                  Click="OnTrackMuteClick">M</Button>
+                          <Button Classes="icon" Width="18" Height="18" Padding="0" FontSize="9" FontWeight="Bold"
+                                  Foreground="#EF4444" ToolTip.Tip="Toggle Hide" Tag="{Binding TrackId}"
+                                  Click="OnTrackHideClick">H</Button>
+                          <Button Classes="icon" Width="18" Height="18" Padding="0" FontSize="9" FontWeight="Bold"
+                                  Foreground="#8B5CF6" ToolTip.Tip="Toggle Lock" Tag="{Binding TrackId}"
+                                  Click="OnTrackLockClick">L</Button>
+                        </StackPanel>
+                      </Grid>
                     </Border>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -728,90 +742,52 @@
                     HorizontalAlignment="Stretch"/>
                 </Border>
 
-                <!-- Track rows (dynamic) -->
+                <!-- Track rows using TimelineTrackControl -->
                 <Grid Grid.Row="1" Name="TimelineTracksContainer"
                       DragDrop.AllowDrop="True">
                   <ItemsControl ItemsSource="{Binding Tracks}">
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Grid Height="56">
+                      <DataTemplate x:DataType="vm:TrackViewModel">
+                        <Grid Height="56" Opacity="{Binding IsHidden, Converter={x:Static local:BoolConvertersEx.HiddenOpacity}}">
                           <Border Background="#18181b" Opacity="0.1" BorderBrush="#27272a" BorderThickness="0,0,0,1"/>
-                          <ItemsControl ItemsSource="{Binding Clips}">
-                            <ItemsControl.ItemsPanel>
-                              <ItemsPanelTemplate>
-                                <Canvas/>
-                              </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.Styles>
-                              <Style Selector="ContentPresenter" x:DataType="vm:ClipViewModel">
-                                <Setter Property="Canvas.Left" Value="{Binding Left}"/>
-                                <Setter Property="Canvas.Top" Value="2"/>
-                                <Setter Property="Width" Value="{Binding Width}"/>
-                                <Setter Property="Height" Value="52"/>
-                              </Style>
-                            </ItemsControl.Styles>
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate>
-                                <Border CornerRadius="6"
-                                        Cursor="Hand"
-                                        BoxShadow="0 4 8 0 #60000000">
-                                  <Border CornerRadius="6"
-                                          BorderThickness="1,1,1,2"
-                                          ClipToBounds="True">
-                                    <Border.BorderBrush>
-                                      <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                                        <GradientStop Color="#60a5fa" Offset="0"/>
-                                        <GradientStop Color="#1e3a8a" Offset="1"/>
-                                      </LinearGradientBrush>
-                                    </Border.BorderBrush>
-                                    <Border.Background>
-                                      <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                                        <GradientStop Color="#3b82f6" Offset="0"/>
-                                        <GradientStop Color="#1e3a8a" Offset="1"/>
-                                      </LinearGradientBrush>
-                                    </Border.Background>
-                                    <Border.Opacity>0.85</Border.Opacity>
-                                    <Grid ColumnDefinitions="*,Auto">
-                                      <StackPanel Orientation="Horizontal"
-                                                  VerticalAlignment="Top" Margin="8,4">
-                                        <TextBlock Text="{Binding Name}" Foreground="#f8fafc"
-                                                   FontSize="10" FontWeight="Medium"
-                                                   TextTrimming="CharacterEllipsis">
-                                          <TextBlock.Effect>
-                                            <DropShadowEffect BlurRadius="2" Color="#000000" Opacity="0.8" OffsetX="0" OffsetY="1"/>
-                                          </TextBlock.Effect>
-                                        </TextBlock>
-                                      </StackPanel>
-                                      <Border Grid.Column="1" Background="#1e1b4b"
-                                              BorderBrush="#a855f7" BorderThickness="1"
-                                              CornerRadius="2" Margin="0,4,4,0"
-                                              Padding="4,1" VerticalAlignment="Top" IsVisible="{Binding IsAI}"
-                                              BoxShadow="0 2 4 0 #40000000">
-                                        <TextBlock Text="AI" Foreground="#a855f7"
-                                                   FontSize="8" FontWeight="Bold"/>
-                                      </Border>
-                                    </Grid>
-                                  </Border>
-                                </Border>
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
+                          <!-- Custom timeline track renderer with thumbnails, waveforms, trim handles -->
+                          <controls:TimelineTrackControl
+                            DomainTrack="{Binding DomainTrack}"
+                            ZoomScale="{Binding ZoomScale, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
+                            TrackType="{Binding TypeLabel}"
+                            Height="56"
+                            ClipToBounds="True"/>
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
 
-                  <!-- Playhead -->
-                  <Canvas Background="Transparent" IsHitTestVisible="False"
-                          VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="10">
-                    <Border Canvas.Left="{Binding PlayheadLeft}" Margin="-1,0,0,0" Width="2" Height="280" Background="#ef4444" BoxShadow="0 0 10 2 #CCEF4444"/>
-                    <Path Fill="#ef4444" Data="M0,0 L16,0 L16,11 L8,16 L0,11 Z"
-                             Canvas.Left="{Binding PlayheadHandleLeft}" Margin="-7,0,0,0">
-                      <Path.Effect>
-                        <DropShadowEffect BlurRadius="6" Color="#ef4444" Opacity="0.8" OffsetX="0" OffsetY="2"/>
-                      </Path.Effect>
-                    </Path>
-                  </Canvas>
+                  <!-- Interactive playhead with scrub, loop markers, frame tooltip -->
+                  <controls:TimelinePlayheadControl
+                    ZIndex="10"
+                    ZoomScale="{Binding ZoomScale}"
+                    PlayheadFrame="{Binding PlayheadFrame}"
+                    TotalFrames="{Binding TotalFrames}"
+                    Fps="{Binding Fps}"
+                    IsPlaying="{Binding IsPlaying}"
+                    VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
+
+                  <!-- Snap indicator overlay -->
+                  <controls:SnapLineOverlay
+                    ZIndex="11"
+                    ZoomScale="{Binding ZoomScale}"
+                    SnapLineX="{Binding SnapLineX}"
+                    SnappedFrame="{Binding SnappedFrame}"
+                    SnapLabel="{Binding SnapLabel}"/>
+
+                  <!-- Clip context menu -->
+                  <controls:TimelineClipContextMenu
+                    Name="ClipContextMenu"
+                    ZIndex="20"
+                    ClipId="{Binding ContextMenuClipId}"
+                    ClipName="{Binding ContextMenuClipName}"
+                    TrackId="{Binding ContextMenuTrackId}"
+                    PlayheadFrame="{Binding PlayheadFrame}"/>
                 </Grid>
 
               </Grid>

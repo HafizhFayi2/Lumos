@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Lumos.Domain;
+using Lumos.Application;
 using Lumos.Application.Assets;
 using Lumos.Application.State;
 using Lumos.Application.Commands;
@@ -55,6 +56,7 @@ public class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(PlayheadLeft));
                 OnPropertyChanged(nameof(PlayheadHandleLeft));
                 OnPropertyChanged(nameof(TimeCode));
+                OnPropertyChanged(nameof(TimeCodeShort));
             }
         }
     }
@@ -95,7 +97,7 @@ public class MainWindowViewModel : ViewModelBase
     {
         get
         {
-            int fps = 30;
+            int fps = Fps > 0 ? Fps : 30;
             int hours = PlayheadFrame / (fps * 3600);
             int minutes = (PlayheadFrame / (fps * 60)) % 60;
             int seconds = (PlayheadFrame / fps) % 60;
@@ -103,6 +105,9 @@ public class MainWindowViewModel : ViewModelBase
             return $"{hours:D2}:{minutes:D2}:{seconds:D2}:{frames:D2}";
         }
     }
+
+    /// Shorter timecode for compact display.
+    public string TimeCodeShort => TimeCode.Length > 8 ? TimeCode[3..] : TimeCode;
 
     public double TimelineWidthPixels => Math.Max(1200, TotalFrames * ZoomScale);
 
@@ -131,6 +136,59 @@ public class MainWindowViewModel : ViewModelBase
     {
         get => _hasAssets;
         set => SetProperty(ref _hasAssets, value);
+    }
+
+    // ── Snap indicator state ────────────────────────────────────────────
+
+    private double? _snapLineX;
+    public double? SnapLineX
+    {
+        get => _snapLineX;
+        set => SetProperty(ref _snapLineX, value);
+    }
+
+    private int? _snappedFrame;
+    public int? SnappedFrame
+    {
+        get => _snappedFrame;
+        set => SetProperty(ref _snappedFrame, value);
+    }
+
+    private string _snapLabel = "";
+    public string SnapLabel
+    {
+        get => _snapLabel;
+        set => SetProperty(ref _snapLabel, value);
+    }
+
+    // ── Context menu state ─────────────────────────────────────────────
+
+    private bool _isContextMenuOpen;
+    public bool IsContextMenuOpen
+    {
+        get => _isContextMenuOpen;
+        set => SetProperty(ref _isContextMenuOpen, value);
+    }
+
+    private string? _contextMenuClipId;
+    public string? ContextMenuClipId
+    {
+        get => _contextMenuClipId;
+        set => SetProperty(ref _contextMenuClipId, value);
+    }
+
+    private string? _contextMenuClipName;
+    public string? ContextMenuClipName
+    {
+        get => _contextMenuClipName;
+        set => SetProperty(ref _contextMenuClipName, value);
+    }
+
+    private string? _contextMenuTrackId;
+    public string? ContextMenuTrackId
+    {
+        get => _contextMenuTrackId;
+        set => SetProperty(ref _contextMenuTrackId, value);
     }
 
     // Media library tabs
@@ -238,17 +296,14 @@ public class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel()
     {
-        // Add initial system message from Assistant
         AIChatMessages.Add(new ChatMessageViewModel("Hi! I'm Lumos AI, your creative co-editor. Tell me what you'd like to do, or select a quick action below.", false));
         McpActivityLogs.Add("[System] MCP server initialized and ready.");
 
-        // Register to EditorStore events
         App.EditorStore.StateChanged += OnStateChanged;
         App.AssetManager.AssetAdded += OnAssetAdded;
         App.AssetManager.AssetRemoved += OnAssetRemoved;
         App.CommandQueue.CommandCompleted += OnCommandCompleted;
 
-        // Load initial state
         LoadState(App.EditorStore.State);
     }
 
@@ -313,6 +368,193 @@ public class MainWindowViewModel : ViewModelBase
         HasAssets = Assets.Count > 0;
     }
 
+    // ── Timeline commands ──────────────────────────────────────────────
+
+    public void SelectClip(string? clipId, string? trackId, bool additive = false)
+    {
+        App.EditorStore.UpdateSelection(s =>
+        {
+            if (clipId == null) return s.ClearAll();
+            return additive ? s.SelectClip(clipId, true) : s.SelectClip(clipId, false);
+        });
+
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        Inspector.Refresh(timeline, clipId);
+
+        // Update ClipViewModel selection state
+        foreach (var track in Tracks)
+            foreach (var clip in track.Clips)
+                clip.IsSelected = App.EditorStore.State.Selection.IsClipSelected(clip.Id);
+    }
+
+    public void SelectTrack(string? trackId)
+    {
+        App.EditorStore.UpdateSelection(s =>
+            trackId == null ? s.ClearAll() : s.SetActiveTrack(trackId));
+    }
+
+    public void SeekToFrame(int frame)
+    {
+        var total = App.EditorStore.State.TotalFrames;
+        App.VideoEngine.Seek(frame);
+    }
+
+    public void TogglePlayPause()
+    {
+        App.VideoEngine.TogglePlayback();
+    }
+
+    public void ToggleTool(ToolMode mode)
+    {
+        App.EditorStore.SetToolMode(
+            App.EditorStore.State.ToolMode == mode ? ToolMode.Pointer : mode);
+    }
+
+    public void ShowContextMenu(string clipId, string clipName, string trackId)
+    {
+        ContextMenuClipId = clipId;
+        ContextMenuClipName = clipName;
+        ContextMenuTrackId = trackId;
+        IsContextMenuOpen = true;
+    }
+
+    public void HandleContextAction(string actionId)
+    {
+        string clipId = ContextMenuClipId ?? "";
+        IsContextMenuOpen = false;
+        if (string.IsNullOrEmpty(clipId)) return;
+
+        McpActivityLogs.Insert(0, $"[{DateTime.Now:HH:mm:ss}] ContextAction: {actionId} on clip {clipId}");
+
+        switch (actionId)
+        {
+            case "delete":
+                App.CommandQueue.Enqueue(new RemoveClipsAsyncCommand(new[] { clipId }));
+                break;
+            case "split":
+                App.CommandQueue.Enqueue(new SplitClipAsyncCommand(clipId, PlayheadFrame));
+                break;
+            case "inspector":
+                ActiveAITab = "Inspector";
+                var timeline = App.EditorStore.State.Timeline.Timeline;
+                Inspector.Refresh(timeline, clipId);
+                break;
+        }
+    }
+
+    public void HandleTrackMute(string trackId, bool isMuted)
+    {
+        App.EditorStore.MuteTimeline("Toggle Mute", trackId);
+    }
+
+    public void HandleTrackHide(string trackId, bool isHidden)
+    {
+        App.EditorStore.HideTimeline("Toggle Hide", trackId);
+    }
+
+    public void HandleTrackLock(string trackId, bool isLocked)
+    {
+        App.EditorStore.LockTimeline("Toggle Lock", trackId);
+    }
+
+    public void ZoomToFit()
+    {
+        if (TotalFrames <= 0) return;
+        double targetPpf = 1200.0 / TotalFrames;
+        ZoomScale = Math.Clamp(targetPpf, Domain.Zoom.Min, Domain.Zoom.Max);
+    }
+
+    public void ZoomIn()
+    {
+        ZoomScale = Math.Min(ZoomScale * 1.25, Domain.Zoom.Max);
+    }
+
+    public void ZoomOut()
+    {
+        ZoomScale = Math.Max(ZoomScale / 1.25, Domain.Zoom.Min);
+    }
+
+    // ── Project persistence ────────────────────────────────────────
+
+    private string? _projectDir;
+    public string? ProjectDir
+    {
+        get => _projectDir;
+        set => SetProperty(ref _projectDir, value);
+    }
+
+    public void SaveProject(string? dir = null)
+    {
+        dir ??= ProjectDir;
+        if (dir == null)
+        {
+            dir = App.RecentProjects.Entries.Count > 0
+                ? App.RecentProjects.Entries[0].Directory
+                : null;
+        }
+        if (dir == null)
+        {
+            McpActivityLogs.Insert(0, "[Project] No save location. Use Save As.");
+            return;
+        }
+
+        var data = ProjectDataBuilder.BuildFromState(App.EditorStore.State);
+        App.ProjectSerializer.Save(dir, data);
+        App.EditorStore.MarkClean();
+        ProjectDir = dir;
+        App.RecentProjects.RecordOpen(dir, ProjectName);
+        McpActivityLogs.Insert(0, $"[{DateTime.Now:HH:mm:ss}] Project saved to {dir}");
+    }
+
+    public void SaveProjectAs(string dir)
+    {
+        SaveProject(dir);
+    }
+
+    public void OpenProject(string dir)
+    {
+        var data = App.ProjectSerializer.Load(dir);
+        if (data == null)
+        {
+            McpActivityLogs.Insert(0, $"[Project] Failed to load project from {dir}");
+            return;
+        }
+
+        var project = data.Project;
+        var timeline = project.Timelines.Count > 0 ? project.Timelines[0] : new Timeline
+        {
+            Width = project.Width, Height = project.Height, Fps = project.FrameRate
+        };
+
+        App.EditorStore.SetProject(project.Id, project.Name, timeline);
+        App.VideoEngine.Rebuild();
+
+        ProjectDir = dir;
+        App.RecentProjects.RecordOpen(dir, project.Name);
+        App.Autosave.Start(dir);
+
+        McpActivityLogs.Insert(0, $"[{DateTime.Now:HH:mm:ss}] Project loaded: {project.Name}");
+    }
+
+    public void NewProject()
+    {
+        App.Autosave.Stop();
+
+        var projectId = Guid.NewGuid();
+        var timeline = new Timeline { Width = 1920, Height = 1080, Fps = 30 };
+        App.EditorStore.SetProject(projectId, "Untitled Project", timeline);
+        App.VideoEngine.Rebuild();
+
+        ProjectDir = null;
+        var dir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "LumosProjects", "current");
+        Directory.CreateDirectory(dir);
+        App.Autosave.Start(dir);
+
+        McpActivityLogs.Insert(0, $"[{DateTime.Now:HH:mm:ss}] New project created");
+    }
+
     private void LoadState(EditorState state)
     {
         ProjectName = state.ProjectName;
@@ -335,14 +577,12 @@ public class MainWindowViewModel : ViewModelBase
         var existingIds = Tracks.Select(t => t.Id).ToHashSet();
         var currentIds = timeline.Tracks.Select(t => t.Id).ToHashSet();
 
-        // Remove deleted tracks
         for (int i = Tracks.Count - 1; i >= 0; i--)
         {
             if (!currentIds.Contains(Tracks[i].Id))
                 Tracks.RemoveAt(i);
         }
 
-        // Add or update tracks (maintain order from domain timeline)
         for (int i = 0; i < timeline.Tracks.Count; i++)
         {
             var coreTrack = timeline.Tracks[i];
@@ -355,7 +595,6 @@ public class MainWindowViewModel : ViewModelBase
             }
             else
             {
-                // Ensure correct order if tracks were reordered
                 int currentIndex = Tracks.IndexOf(existingTrack);
                 if (currentIndex != i)
                 {
@@ -364,6 +603,9 @@ public class MainWindowViewModel : ViewModelBase
             }
 
             existingTrack.SyncClips(coreTrack.Clips, ZoomScale);
+            existingTrack.IsMuted = coreTrack.IsMuted;
+            existingTrack.IsHidden = coreTrack.IsHidden;
+            existingTrack.IsLocked = coreTrack.IsSyncLocked;
         }
     }
 }
@@ -390,6 +632,19 @@ public class AssetViewModel : ViewModelBase
         ClipType.Image => "🖼️",
         _ => "📝"
     };
+    public string TypeColor => _asset.Type switch
+    {
+        ClipType.Video => "#3B82F6",
+        ClipType.Audio => "#10B981",
+        ClipType.Image => "#F59E0B",
+        _ => "#A855F7"
+    };
+    public string Resolution => _asset.SourceWidth is > 0 && _asset.SourceHeight is > 0
+        ? $"{_asset.SourceWidth}×{_asset.SourceHeight}"
+        : "";
+    public string FpsText => _asset.SourceFps is > 0
+        ? $"{_asset.SourceFps:F1}fps"
+        : "";
 
     public AssetViewModel(Asset asset)
     {
@@ -405,29 +660,75 @@ public class ClipViewModel : ViewModelBase
     public Clip Clip => _clip;
     public string Id => _clip.Id;
     public string Name => Path.GetFileName(_clip.MediaRef);
+    public ClipType MediaType => _clip.MediaType;
     public bool IsAI => _clip.MediaType == ClipType.Text || Name.Contains("Generated") || Name.Contains("AI");
-    public string Color => _clip.MediaType switch
+    public bool IsVideo => _clip.MediaType == ClipType.Video;
+    public bool IsAudio => _clip.MediaType == ClipType.Audio;
+    public bool IsImage => _clip.MediaType == ClipType.Image;
+    public bool IsText => _clip.MediaType == ClipType.Text;
+
+    public string Symbol => _clip.MediaType switch
     {
-        ClipType.Audio => "green",
-        _ => IsAI ? "accent" : "blue"
+        ClipType.Video => "🎬",
+        ClipType.Audio => "🎵",
+        ClipType.Image => "🖼️",
+        _ => "📝"
     };
+
+    public string TrackType => _clip.MediaType == ClipType.Audio ? "AUDIO" : "VIDEO";
+
+    // ── Computed layout properties ────────────────────────────────────
 
     public double Left => _clip.StartFrame * _zoomScale;
-    public double Width => _clip.DurationFrames * _zoomScale;
+    public double Width => Math.Max(2, _clip.DurationFrames * _zoomScale);
 
-    public string ColorHex => Color switch
+    public string DurationText
     {
-        "green" => IsSelected ? "#1C452C" : "#11291A",
-        "accent" => IsSelected ? "#3C1F5E" : "#24133A",
-        _ => IsSelected ? "#1E3B5E" : "#12243C"
-    };
+        get
+        {
+            double seconds = (double)_clip.DurationFrames / 30;
+            int min = (int)(seconds / 60);
+            double sec = seconds % 60;
+            return min > 0 ? $"{min}:{sec:F1}" : $"{sec:F1}s";
+        }
+    }
 
-    public string BorderHex => Color switch
+    public string TimeRangeText
     {
-        "green" => IsSelected ? "#4ADE80" : "#2E8B57",
-        "accent" => IsSelected ? "#81D4FA" : "#5A738E",
-        _ => IsSelected ? "#2986F6" : "#1E5CA8"
-    };
+        get
+        {
+            string start = FormatFrame(_clip.StartFrame);
+            string end = FormatFrame(_clip.EndFrame);
+            return $"{start} → {end}";
+        }
+    }
+
+    public string StartFrameText => $"F:{_clip.StartFrame}";
+    public string DurationFramesText => $"{_clip.DurationFrames}f";
+    public string SpeedText => _clip.Speed != 1.0 ? $"{_clip.Speed:F2}×" : "";
+    public string OpacityText => _clip.Opacity < 1.0 ? $"{(int)(_clip.Opacity * 100)}%" : "";
+    public string FadeInText => _clip.FadeInFrames > 0 ? $"In:{_clip.FadeInFrames}f" : "";
+    public string FadeOutText => _clip.FadeOutFrames > 0 ? $"Out:{_clip.FadeOutFrames}f" : "";
+    public int EffectCount => _clip.Effects.Count;
+    public bool HasEffects => _clip.Effects.Count > 0;
+    public string HasAudioBadge => _clip.SourceClipType == ClipType.Video ? "🔊" : "";
+
+    // ── Transform properties for inspector ────────────────────────────
+
+    public double PositionX => _clip.Transform.CenterX;
+    public double PositionY => _clip.Transform.CenterY;
+    public double ScaleX => _clip.Transform.Width;
+    public double ScaleY => _clip.Transform.Height;
+    public double Rotation => _clip.Transform.Rotation;
+    public double CropLeft => _clip.Crop.Left;
+    public double CropRight => _clip.Crop.Right;
+    public double CropTop => _clip.Crop.Top;
+    public double CropBottom => _clip.Crop.Bottom;
+    public double FadeInFrames => _clip.FadeInFrames;
+    public double FadeOutFrames => _clip.FadeOutFrames;
+    public double Speed => _clip.Speed;
+
+    // ── Selection state ───────────────────────────────────────────────
 
     private bool _isSelected;
     public bool IsSelected
@@ -439,17 +740,42 @@ public class ClipViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(ColorHex));
                 OnPropertyChanged(nameof(BorderHex));
+                OnPropertyChanged(nameof(BorderWidth));
             }
         }
     }
 
-    public string Symbol => _clip.MediaType switch
+    public string ColorHex => (_clip.MediaType, IsSelected) switch
     {
-        ClipType.Video => "🎬",
-        ClipType.Audio => "🎵",
-        ClipType.Image => "🖼️",
-        _ => "📝"
+        (ClipType.Audio, true)  => "#1C452C",
+        (ClipType.Audio, false) => "#11291A",
+        (ClipType.Text, true)   => "#3C1F5E",
+        (ClipType.Text, false)  => "#24133A",
+        (ClipType.Image, true)  => "#3D3020",
+        (ClipType.Image, false) => "#2A2015",
+        (_, true)               => "#1E3B5E",
+        _                       => "#12243C",
     };
+
+    public string BorderHex => (_clip.MediaType, IsSelected) switch
+    {
+        (ClipType.Audio, true)  => "#4ADE80",
+        (ClipType.Audio, false) => "#2E8B57",
+        (_, true)               => "#2986F6",
+        _                       => "#1E5CA8",
+    };
+
+    public double BorderWidth => IsSelected ? 2.0 : 1.0;
+
+    public string TypeColorHex => _clip.MediaType switch
+    {
+        ClipType.Audio => "#10B981",
+        ClipType.Text => "#A855F7",
+        ClipType.Image => "#F59E0B",
+        _ => "#3B82F6"
+    };
+
+    // ── Constructor & updates ─────────────────────────────────────────
 
     public ClipViewModel(Clip clip, double zoomScale)
     {
@@ -464,6 +790,17 @@ public class ClipViewModel : ViewModelBase
         OnPropertyChanged(nameof(Width));
         OnPropertyChanged(nameof(ColorHex));
         OnPropertyChanged(nameof(BorderHex));
+        OnPropertyChanged(nameof(BorderWidth));
+    }
+
+    private static string FormatFrame(int frame)
+    {
+        int fps = 30;
+        int hours = frame / (fps * 3600);
+        int minutes = (frame / (fps * 60)) % 60;
+        int seconds = (frame / fps) % 60;
+        int frames = frame % fps;
+        return $"{hours:D2}:{minutes:D2}:{seconds:D2}:{frames:D2}";
     }
 }
 
@@ -496,15 +833,60 @@ public class ChatMessageViewModel : ViewModelBase
 public class TrackViewModel : ViewModelBase
 {
     public string Id { get; }
-    public string Name { get; }
+    private string _name;
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
     public string TypeLabel { get; }
     public ObservableCollection<ClipViewModel> Clips { get; } = new();
 
+    private bool _isMuted;
+    public bool IsMuted
+    {
+        get => _isMuted;
+        set => SetProperty(ref _isMuted, value);
+    }
+
+    private bool _isHidden;
+    public bool IsHidden
+    {
+        get => _isHidden;
+        set => SetProperty(ref _isHidden, value);
+    }
+
+    private bool _isLocked;
+    public bool IsLocked
+    {
+        get => _isLocked;
+        set => SetProperty(ref _isLocked, value);
+    }
+
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
+
+    public string TrackId => Id;
+    public Track DomainTrack => _track;
+    private readonly Track _track;
+
     public TrackViewModel(Track track)
     {
+        _track = track;
         Id = track.Id;
-        Name = track.Name;
-        TypeLabel = track.Type == ClipType.Video ? "VIDEO" : "AUDIO";
+        _name = track.Name;
+        TypeLabel = track.Type switch
+        {
+            ClipType.Video => "VIDEO",
+            ClipType.Audio => "AUDIO",
+            ClipType.Text => "TEXT",
+            ClipType.Image => "IMAGE",
+            _ => "VIDEO"
+        };
     }
 
     public void SyncClips(IReadOnlyList<Clip> coreClips, double zoomScale)

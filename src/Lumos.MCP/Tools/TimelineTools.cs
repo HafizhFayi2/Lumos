@@ -26,6 +26,9 @@ public sealed class TimelineTools
     {
         var state = _store.State;
         var tl = state.Timeline.Timeline;
+        if (tl == null)
+            return Task.FromResult(McpToolHelpers.Error("No timeline loaded."));
+
         var snapshot = new
         {
             fps    = tl.Fps,
@@ -38,6 +41,9 @@ public sealed class TimelineTools
                 index = ti,
                 id    = track.Id,
                 name  = track.Name,
+                isMuted  = track.IsMuted,
+                isHidden = track.IsHidden,
+                isLocked = track.IsSyncLocked,
                 clips = track.Clips.Select(c => new
                 {
                     id              = c.Id,
@@ -46,6 +52,9 @@ public sealed class TimelineTools
                     startFrame      = c.StartFrame,
                     durationFrames  = c.DurationFrames,
                     endFrame        = c.EndFrame,
+                    speed           = c.Speed,
+                    opacity         = c.Opacity,
+                    effects         = c.Effects.Select(e => e.Type).ToList(),
                     startSeconds    = tl.Fps > 0 ? (double)c.StartFrame / tl.Fps : 0,
                     durationSeconds = tl.Fps > 0 ? (double)c.DurationFrames / tl.Fps : 0,
                 }),
@@ -62,8 +71,18 @@ public sealed class TimelineTools
     [Description("Split a clip at a given frame, producing two clips in place. Args: clip_id (string), split_frame (int).")]
     public async Task<string> SplitClipAsync(JsonElement args, CancellationToken ct = default)
     {
-        if (!TryGetString(args, "clip_id", out var clipId) || !TryGetInt(args, "split_frame", out var frame))
-            return Error("split_clip requires clip_id (string) and split_frame (int)");
+        var err = McpToolHelpers.ValidateClipId(args, out var clipId);
+        if (err != null) return McpToolHelpers.Error(err);
+
+        if (!McpToolHelpers.TryGetInt(args, "split_frame", out var frame))
+            return McpToolHelpers.Error("split_frame (int) is required");
+
+        var clip = FindClip(clipId!);
+        if (clip == null)
+            return McpToolHelpers.Error($"Clip '{clipId}' not found in timeline.");
+
+        if (frame <= clip.StartFrame || frame >= clip.EndFrame)
+            return McpToolHelpers.Error($"split_frame ({frame}) must be between clip start ({clip.StartFrame}) and end ({clip.EndFrame}).");
 
         var cmd = new SplitClipAsyncCommand(clipId!, frame);
         return await EnqueueAsync(cmd, ct);
@@ -73,11 +92,24 @@ public sealed class TimelineTools
     [Description("Adjust a clip's trim points. Args: clip_id (string), trim_start (int, source frames to skip at head, default 0), trim_end (int, source frames to skip at tail, default 0).")]
     public async Task<string> TrimClipAsync(JsonElement args, CancellationToken ct = default)
     {
-        if (!TryGetString(args, "clip_id", out var clipId))
-            return Error("trim_clip requires clip_id (string)");
+        var err = McpToolHelpers.ValidateClipId(args, out var clipId);
+        if (err != null) return McpToolHelpers.Error(err);
 
-        TryGetInt(args, "trim_start", out var trimStart);
-        TryGetInt(args, "trim_end", out var trimEnd);
+        McpToolHelpers.TryGetInt(args, "trim_start", out var trimStart);
+        McpToolHelpers.TryGetInt(args, "trim_end", out var trimEnd);
+
+        if (trimStart < 0)
+            return McpToolHelpers.Error("trim_start must be >= 0");
+        if (trimEnd < 0)
+            return McpToolHelpers.Error("trim_end must be >= 0");
+
+        var clip = FindClip(clipId!);
+        if (clip == null)
+            return McpToolHelpers.Error($"Clip '{clipId}' not found in timeline.");
+
+        if (trimStart + trimEnd >= clip.DurationFrames)
+            return McpToolHelpers.Error($"trim_start ({trimStart}) + trim_end ({trimEnd}) must be less than clip duration ({clip.DurationFrames}).");
+
         var cmd = new TrimClipAsyncCommand(clipId!, trimStart, trimEnd);
         return await EnqueueAsync(cmd, ct);
     }
@@ -86,11 +118,17 @@ public sealed class TimelineTools
     [Description("Move a clip to a different start frame and/or track. Args: clip_id (string), start_frame (int), track_id (string, optional — omit to keep current track).")]
     public async Task<string> MoveClipAsync(JsonElement args, CancellationToken ct = default)
     {
-        if (!TryGetString(args, "clip_id", out var clipId) || !TryGetInt(args, "start_frame", out var startFrame))
-            return Error("move_clip requires clip_id (string) and start_frame (int)");
+        var err = McpToolHelpers.ValidateClipId(args, out var clipId);
+        if (err != null) return McpToolHelpers.Error(err);
+
+        if (!McpToolHelpers.TryGetInt(args, "start_frame", out var startFrame))
+            return McpToolHelpers.Error("start_frame (int) is required");
+
+        if (startFrame < 0)
+            return McpToolHelpers.Error("start_frame must be >= 0");
 
         // Resolve track_id: caller supplies it or we look it up from the current timeline
-        TryGetString(args, "track_id", out var trackId);
+        McpToolHelpers.TryGetString(args, "track_id", out var trackId);
         if (string.IsNullOrEmpty(trackId))
         {
             var tl = _store.State.Timeline.Timeline;
@@ -98,7 +136,7 @@ public sealed class TimelineTools
                          .FirstOrDefault(p => p.c.Id == clipId).t?.Id ?? string.Empty;
         }
         if (string.IsNullOrEmpty(trackId))
-            return Error($"Clip '{clipId}' not found in timeline.");
+            return McpToolHelpers.Error($"Clip '{clipId}' not found in timeline.");
 
         var cmd = new MoveClipAsyncCommand(clipId!, startFrame, trackId);
         return await EnqueueAsync(cmd, ct);
@@ -108,10 +146,17 @@ public sealed class TimelineTools
     [Description("Remove one or more clips by ID. Args: clip_ids (array of strings).")]
     public async Task<string> RemoveClipsAsync(JsonElement args, CancellationToken ct = default)
     {
-        if (!TryGetStringArray(args, "clip_ids", out var ids) || ids is null || ids.Count == 0)
-            return Error("remove_clips requires clip_ids (array of strings)");
+        var err = McpToolHelpers.ValidateNonEmptyClipIds(args, out var ids);
+        if (err != null) return McpToolHelpers.Error(err);
 
-        var cmd = new RemoveClipsAsyncCommand(ids);
+        // Validate all clip IDs exist
+        var tl = _store.State.Timeline.Timeline;
+        var allClipIds = tl.Tracks.SelectMany(t => t.Clips).Select(c => c.Id).ToHashSet();
+        var missing = ids!.Where(id => !allClipIds.Contains(id)).ToList();
+        if (missing.Count > 0)
+            return McpToolHelpers.Error($"Clip(s) not found: {string.Join(", ", missing)}");
+
+        var cmd = new RemoveClipsAsyncCommand(ids!);
         return await EnqueueAsync(cmd, ct);
     }
 
@@ -119,8 +164,12 @@ public sealed class TimelineTools
     [Description("Remove a clip and shift downstream clips left to close the gap. Args: clip_id (string).")]
     public async Task<string> RippleDeleteAsync(JsonElement args, CancellationToken ct = default)
     {
-        if (!TryGetString(args, "clip_id", out var clipId))
-            return Error("ripple_delete requires clip_id (string)");
+        var err = McpToolHelpers.ValidateClipId(args, out var clipId);
+        if (err != null) return McpToolHelpers.Error(err);
+
+        var clip = FindClip(clipId!);
+        if (clip == null)
+            return McpToolHelpers.Error($"Clip '{clipId}' not found in timeline.");
 
         var cmd = new RippleDeleteAsyncCommand(new[] { clipId! });
         return await EnqueueAsync(cmd, ct);
@@ -130,8 +179,18 @@ public sealed class TimelineTools
     [Description("Apply an effect to a specific clip. Args: clip_id (string), effect_type (string, e.g. color_grade, glow, clarity, vignette).")]
     public async Task<string> ApplyEffectAsync(JsonElement args, CancellationToken ct = default)
     {
-        if (!TryGetString(args, "clip_id", out var clipId) || !TryGetString(args, "effect_type", out var effectType))
-            return Error("apply_effect requires clip_id (string) and effect_type (string)");
+        var err = McpToolHelpers.ValidateClipId(args, out var clipId);
+        if (err != null) return McpToolHelpers.Error(err);
+
+        if (!McpToolHelpers.TryGetString(args, "effect_type", out var effectType) || string.IsNullOrWhiteSpace(effectType))
+            return McpToolHelpers.Error("effect_type (string) is required");
+
+        var effectErr = McpToolHelpers.ValidateEffectType(effectType!);
+        if (effectErr != null) return McpToolHelpers.Error(effectErr);
+
+        var clip = FindClip(clipId!);
+        if (clip == null)
+            return McpToolHelpers.Error($"Clip '{clipId}' not found in timeline.");
 
         var cmd = new AddEffectAsyncCommand(clipId!, effectType!);
         return await EnqueueAsync(cmd, ct);
@@ -143,34 +202,13 @@ public sealed class TimelineTools
     {
         var result = await _queue.EnqueueAsync(cmd, ct);
         return result.Succeeded
-            ? "{\"ok\":true}"
-            : JsonSerializer.Serialize(new { ok = false, error = result.ErrorMessage });
+            ? McpToolHelpers.Ok()
+            : McpToolHelpers.Error(result.ErrorMessage ?? "Command execution failed");
     }
 
-    private static string Error(string msg) =>
-        JsonSerializer.Serialize(new { ok = false, error = msg });
-
-    private static bool TryGetString(JsonElement el, string key, out string? value)
+    private Domain.Clip? FindClip(string clipId)
     {
-        value = null;
-        if (el.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.String)
-        { value = p.GetString(); return true; }
-        return false;
-    }
-
-    private static bool TryGetInt(JsonElement el, string key, out int value)
-    {
-        value = 0;
-        if (el.TryGetProperty(key, out var p) && p.TryGetInt32(out value)) return true;
-        return false;
-    }
-
-    private static bool TryGetStringArray(JsonElement el, string key, out List<string>? value)
-    {
-        value = null;
-        if (!el.TryGetProperty(key, out var p) || p.ValueKind != JsonValueKind.Array) return false;
-        value = p.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String)
-                  .Select(x => x.GetString()!).ToList();
-        return true;
+        var tl = _store.State.Timeline.Timeline;
+        return tl.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.Id == clipId);
     }
 }

@@ -29,6 +29,11 @@ public partial class App : Avalonia.Application
     public static McpServer McpServer { get; private set; } = null!;
     public static IMediaExporter Exporter { get; private set; } = null!;
 
+    // Persistence
+    public static ProjectSerializer ProjectSerializer { get; private set; } = new();
+    public static AutosaveService Autosave { get; private set; } = null!;
+    public static RecentProjectsService RecentProjects { get; private set; } = new();
+
     // AI: null when no API key is configured
     public static AgentService? AgentService { get; private set; }
     public static SemanticSearchService SemanticSearch { get; private set; } = new(new VectorSearchEngine());
@@ -53,9 +58,11 @@ public partial class App : Avalonia.Application
             };
             desktop.Exit += (_, _) =>
             {
+                Autosave?.SaveNow();
                 McpServer?.StopAsync().GetAwaiter().GetResult();
                 McpServer?.Dispose();
                 _folderWatcher?.Dispose();
+                Autosave?.Dispose();
             };
         }
 
@@ -81,23 +88,28 @@ public partial class App : Avalonia.Application
 
         // 3. Initial timeline
         var timeline = new Timeline { Width = 1920, Height = 1080, Fps = 30 };
-        
         var projectId = Guid.NewGuid();
         EditorStore.SetProject(projectId, "Untitled Project", timeline);
         VideoEngine.Rebuild();
 
-        // 4. Export & MCP
+        // 4. Autosave
+        var projectDir = GetDefaultProjectDir();
+        Autosave = new AutosaveService(EditorStore);
+        Autosave.Start(projectDir);
+        RecentProjects.RecordOpen(projectDir, "Untitled Project");
+
+        // 5. Export & MCP
         Exporter  = new MediaExporter();
         McpServer = new McpServer(EditorStore, CommandQueue, Exporter, AssetManager);
         _ = McpServer.StartAsync();
 
-        // 5. AI Agent (optional — requires API key)
+        // 6. AI Agent (optional — requires API key)
         InitializeAgentService();
 
-        // 6. Folder watcher
+        // 8. Folder watcher
         InitializeFolderWatcher(projectId);
 
-        // 7. Kick off background semantic indexing whenever a new asset is imported
+        // 9. Kick off background semantic indexing whenever a new asset is imported
         AssetManager.AssetAdded += (_, e) =>
         {
             _ = Task.Run(() => SemanticSearch.IndexAsset(e.Asset.FilePath));
@@ -138,6 +150,14 @@ public partial class App : Avalonia.Application
             schemas.Add(new AgentToolSchema(name, description, inputSchema));
         }
         return schemas;
+    }
+
+    private static string GetDefaultProjectDir()
+    {
+        var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var dir = Path.Combine(docs, "LumosProjects", "current");
+        Directory.CreateDirectory(dir);
+        return dir;
     }
 
     private static void InitializeFolderWatcher(Guid projectId)

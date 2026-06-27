@@ -106,7 +106,22 @@ public partial class MainWindow : Window
 
         // Sync initial tool state
         RefreshToolButtons(App.EditorStore.State.ToolMode);
-    }
+
+        // Clip context menu
+        var clipCtx = this.FindControl<Controls.TimelineClipContextMenu>("ClipContextMenu");
+        if (clipCtx != null)
+        {
+            clipCtx.ActionRequested += (_, actionId) => VM.HandleContextAction(actionId);
+        }
+
+        // Dismiss context menu on pointer pressed elsewhere
+        tracks.PointerPressed += (_, e) =>
+        {                    if (VM.IsContextMenuOpen)
+        {
+            VM.IsContextMenuOpen = false;
+            clipCtx?.Close();
+        }
+        };    }
 
     private void OnMediaSearchChanged(object? sender, TextChangedEventArgs e)
     {
@@ -207,6 +222,21 @@ public partial class MainWindow : Window
                 App.CommandQueue.RedoAsync();
                 e.Handled = true;
                 break;
+
+            case Key.S when ctrl:
+                VM.SaveProject();
+                e.Handled = true;
+                break;
+
+            case Key.O when ctrl:
+                _ = OnOpenProjectAsync();
+                e.Handled = true;
+                break;
+
+            case Key.N when ctrl:
+                VM.NewProject();
+                e.Handled = true;
+                break;
         }
     }
 
@@ -234,6 +264,26 @@ public partial class MainWindow : Window
     {
         // Toggles half-res label; actual res change would hook into VideoEngine resolution setting
         VM.McpActivityLogs.Insert(0, "[Preview] Half resolution preview toggled.");
+    }
+
+    // ── Track header buttons (Mute / Hide / Lock) ────────────────────────────
+
+    private void OnTrackMuteClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string trackId)
+            VM.HandleTrackMute(trackId, false);
+    }
+
+    private void OnTrackHideClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string trackId)
+            VM.HandleTrackHide(trackId, false);
+    }
+
+    private void OnTrackLockClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string trackId)
+            VM.HandleTrackLock(trackId, false);
     }
 
     // ── Title bar ────────────────────────────────────────────────────────────
@@ -531,9 +581,13 @@ public partial class MainWindow : Window
             // Binding takes care of most things, but we can force property changed if needed
         }
 
-        public void SetSnapIndicatorX(double? x)
+        public void SetSnapIndicatorX(double? x, int? frame = null, string? label = null)
         {
-            // UI implementation for snap indicator line (can be added to viewmodel)
+            var vm = _window.DataContext as MainWindowViewModel;
+            if (vm == null) return;
+            vm.SnapLineX = x;
+            vm.SnappedFrame = frame;
+            vm.SnapLabel = label ?? "";
         }
 
         public bool AutoScrollHorizontallyForTimelineDrag(DomainPoint point)
@@ -814,6 +868,24 @@ public partial class MainWindow : Window
     }
 
     // Ruler scrub removed, handled by TimelineInputController
+
+    // ── Project open ──────────────────────────────────────────────────────
+
+    private async Task OnOpenProjectAsync()
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel == null) return;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Open Project Folder",
+            AllowMultiple = false,
+        });
+
+        if (folders == null || folders.Count == 0) return;
+        string dir = folders[0].Path.LocalPath;
+        VM.OpenProject(dir);
+    }
 
     protected override void OnClosed(EventArgs e)
     {

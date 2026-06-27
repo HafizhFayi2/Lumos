@@ -9,6 +9,7 @@ using Lumos.Application.Assets;
 using Lumos.Application.Commands;
 using Lumos.Application.State;
 using Lumos.MCP.Tools;
+using static Lumos.MCP.Tools.McpToolHelpers;
 
 namespace Lumos.MCP;
 
@@ -45,6 +46,10 @@ public sealed class McpServer : IDisposable
                 services.AddSingleton(_queue);
                 services.AddSingleton(_exporter);
                 services.AddSingleton(_assets);
+                services.AddSingleton<TimelineTools>();
+                services.AddSingleton<AssetTools>();
+                services.AddSingleton<ExportTools>();
+                services.AddSingleton<CaptionTools>();
                 services.AddMcpServer(opts =>
                 {
                     opts.ServerInfo = new() { Name = "lumos-desktop", Version = "1.0.0" };
@@ -94,7 +99,8 @@ public sealed class McpServer : IDisposable
             ToolDefinitions.ImportMedia      => await sp.GetRequiredService<AssetTools>().ImportMediaAsync(args, ct),
             ToolDefinitions.ExportVideo      => await sp.GetRequiredService<ExportTools>().ExportVideoAsync(args, ct),
             ToolDefinitions.GenerateCaptions => await sp.GetRequiredService<CaptionTools>().GenerateCaptionsAsync(args, ct),
-            _                                => $"{{\"error\":\"unknown tool: {toolName}\"}}",
+            ToolDefinitions.ApplyEffect      => await sp.GetRequiredService<TimelineTools>().ApplyEffectAsync(args, ct),
+            _                                => McpToolHelpers.Error($"unknown tool: {toolName}"),
         };
     }
 

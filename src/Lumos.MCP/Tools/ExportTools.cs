@@ -23,17 +23,28 @@ public sealed class ExportTools
     [Description("Render and export the timeline to an MP4 file. Args: output_path (string), width (int, default 1920), height (int, default 1080), fps (int, default 30), video_bitrate_kbps (int, default 8000).")]
     public async Task<string> ExportVideoAsync(JsonElement args, CancellationToken ct = default)
     {
-        if (!TryGetString(args, "output_path", out var outputPath) || string.IsNullOrWhiteSpace(outputPath))
-            return Error("export_video requires output_path (string)");
+        if (!McpToolHelpers.TryGetString(args, "output_path", out var outputPath) || string.IsNullOrWhiteSpace(outputPath))
+            return McpToolHelpers.Error("output_path (string) is required");
 
-        TryGetInt(args, "width",              out var width);
-        TryGetInt(args, "height",             out var height);
-        TryGetInt(args, "fps",                out var fps);
-        TryGetInt(args, "video_bitrate_kbps", out var bitrate);
+        McpToolHelpers.TryGetInt(args, "width",              out var width);
+        McpToolHelpers.TryGetInt(args, "height",             out var height);
+        McpToolHelpers.TryGetInt(args, "fps",                out var fps);
+        McpToolHelpers.TryGetInt(args, "video_bitrate_kbps", out var bitrate);
+
+        if (width > 0 && (width < 16 || width > 7680))
+            return McpToolHelpers.Error($"width ({width}) must be between 16 and 7680");
+        if (height > 0 && (height < 16 || height > 4320))
+            return McpToolHelpers.Error($"height ({height}) must be between 16 and 4320");
+        if (fps > 0 && (fps < 1 || fps > 240))
+            return McpToolHelpers.Error($"fps ({fps}) must be between 1 and 240");
+        if (bitrate > 0 && (bitrate < 100 || bitrate > 100_000))
+            return McpToolHelpers.Error($"video_bitrate_kbps ({bitrate}) must be between 100 and 100,000");
 
         var tl = _store.State.Timeline.Timeline;
+        if (tl == null)
+            return McpToolHelpers.Error("No timeline loaded.");
         if (tl.TotalFrames == 0)
-            return Error("Timeline is empty — nothing to export.");
+            return McpToolHelpers.Error("Timeline is empty — nothing to export.");
 
         var profile = new ExportProfile
         {
@@ -44,35 +55,15 @@ public sealed class ExportTools
             VideoCodec        = "libx264",
         };
 
-        var progressLog = new List<double>();
-        var progress = new Progress<double>(p => progressLog.Add(p));
-
         try
         {
+            var progress = new Progress<double>(_ => { });
             await _exporter.ExportAsync(tl, profile, outputPath!, progress);
-            return JsonSerializer.Serialize(new { ok = true, output_path = outputPath });
+            return McpToolHelpers.Ok(new { output_path = outputPath, width = profile.Width, height = profile.Height, fps = profile.FrameRate });
         }
         catch (Exception ex)
         {
-            return Error($"Export failed: {ex.Message}");
+            return McpToolHelpers.Error($"Export failed: {ex.Message}");
         }
-    }
-
-    private static string Error(string msg) =>
-        JsonSerializer.Serialize(new { ok = false, error = msg });
-
-    private static bool TryGetString(JsonElement el, string key, out string? value)
-    {
-        value = null;
-        if (el.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.String)
-        { value = p.GetString(); return true; }
-        return false;
-    }
-
-    private static bool TryGetInt(JsonElement el, string key, out int value)
-    {
-        value = 0;
-        if (el.TryGetProperty(key, out var p) && p.TryGetInt32(out value)) return true;
-        return false;
     }
 }
