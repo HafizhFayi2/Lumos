@@ -242,7 +242,7 @@
             <TextBlock Text="🎥" Foreground="White" FontSize="10"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
-          <TextBlock Text="Palmier" Foreground="#f8fafc" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,24,0"/>
+          <TextBlock Text="Lumos" Foreground="#f8fafc" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,24,0"/>
           
           <Button Classes="menu" Name="MenuFile"     Content="File"/>
           <Button Classes="menu" Name="MenuEdit"     Content="Edit"/>
@@ -321,13 +321,98 @@
                         HorizontalScrollBarVisibility="Disabled"
                         VerticalScrollBarVisibility="Auto">
             <StackPanel>
-              <!-- Project Assets header -->
-              <Border Padding="12,8" BorderBrush="#3f3f46" BorderThickness="0,0,0,1" Margin="0,0,0,1">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBlock Text="▸" Foreground="#475569" FontSize="10" VerticalAlignment="Center"/>
-                  <TextBlock Text="Project Assets" Foreground="#f8fafc"
-                             FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                </StackPanel>
+              <!-- Folder tree section -->
+              <StackPanel Name="FolderTreePanel" DragDrop.AllowDrop="True">
+                <!-- All Assets header (clickable) -->
+                <Border Padding="12,6" BorderBrush="#3f3f46" BorderThickness="0,0,0,1"
+                        Cursor="Hand" PointerPressed="OnFolderItemPointerPressed"
+                        Tag="__all__">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="🗂" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock Text="All Assets" Foreground="#f8fafc" FontSize="12"
+                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Border>
+
+                <!-- Folder tree items -->
+                <ItemsControl ItemsSource="{Binding FolderRoots}" Margin="0,2,0,6">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FolderViewModel">
+                      <StackPanel>
+                        <!-- Root folder row -->
+                        <Border Padding="12,5,12,5" Margin="0" Cursor="Hand"
+                                PointerPressed="OnFolderItemPointerPressed"
+                                Tag="{Binding Id}"
+                                Background="{Binding BackgroundHex}"
+                                DragDrop.AllowDrop="True"
+                                Name="FolderRow">
+                          <Grid ColumnDefinitions="Auto,*,Auto">
+                            <!-- Expand/collapse toggle -->
+                            <TextBlock Grid.Column="0" Width="14"
+                                       Text="{Binding ExpandIcon}" Foreground="#64748b"
+                                       FontSize="10" VerticalAlignment="Center"
+                                       IsVisible="{Binding HasChildren}"
+                                       PointerPressed="OnFolderTogglePointerPressed"
+                                       Tag="{Binding}"/>
+                            <!-- Folder icon -->
+                            <TextBlock Grid.Column="0" Text="{Binding Icon}" FontSize="12"
+                                       VerticalAlignment="Center" Margin="14,0,6,0"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="#cbd5e1"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <Border Grid.Column="2" CornerRadius="8" Background="#27272a"
+                                    Padding="6,1" MinWidth="20">
+                              <TextBlock Text="{Binding AssetCount}" Foreground="#94a3b8"
+                                         FontSize="10" HorizontalAlignment="Center" FontFamily="Consolas,Menlo,monospace"/>
+                            </Border>
+                          </Grid>
+                        </Border>
+                        <!-- Child folders (shown when parent is expanded) -->
+                        <ItemsControl ItemsSource="{Binding Children}" IsVisible="{Binding IsExpanded}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FolderViewModel">
+                              <StackPanel>
+                                <Border Padding="24,5,12,5" Cursor="Hand"
+                                        PointerPressed="OnFolderItemPointerPressed"
+                                        Tag="{Binding Id}"
+                                        Background="{Binding BackgroundHex}"
+                                        DragDrop.AllowDrop="True"
+                                        Name="FolderRowChild">
+                                  <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <TextBlock Text="{Binding Icon}" FontSize="12"
+                                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="#cbd5e1"
+                                               FontSize="12" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <Border Grid.Column="2" CornerRadius="8" Background="#27272a"
+                                            Padding="6,1" MinWidth="20">
+                                      <TextBlock Text="{Binding AssetCount}" Foreground="#94a3b8"
+                                                 FontSize="10" HorizontalAlignment="Center" FontFamily="Consolas,Menlo,monospace"/>
+                                    </Border>
+                                  </Grid>
+                                </Border>
+                              </StackPanel>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <!-- Divider -->
+              <Border Height="1" Background="#3f3f46" Margin="0,2,0,4"/>
+
+              <!-- Folder title bar -->
+              <Border Padding="12,6" Background="#09090b">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding SelectedFolderName}" Foreground="#f8fafc"
+                             FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                  <Button Grid.Column="1" Classes="icon" Width="22" Height="22" Padding="0"
+                          FontSize="12" ToolTip.Tip="New Folder"
+                          Click="OnNewFolderClicked">+</Button>
+                </Grid>
               </Border>
 
               <!-- Empty state -->
@@ -338,9 +423,9 @@
                   <TextBlock Text="🎬" FontSize="24"
                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
-                <TextBlock Text="No media imported" Foreground="#64748b" FontSize="12"
+                <TextBlock Text="No media in this folder" Foreground="#64748b" FontSize="12"
                            HorizontalAlignment="Center"/>
-                <TextBlock Text="Click Import to add files" Foreground="#475569" FontSize="11"
+                <TextBlock Text="Import files or drag them here" Foreground="#475569" FontSize="11"
                            HorizontalAlignment="Center"/>
               </StackPanel>
 
@@ -467,7 +552,8 @@
             <!-- Fit / Res buttons at top-right -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16,12" Spacing="4">
               <Button Classes="secondary" Name="BtnFitZoom" Padding="8,4" CornerRadius="4" FontSize="11">Fit</Button>
-              <Button Classes="secondary" Name="BtnHalfRes" Padding="8,4" CornerRadius="4" FontSize="11">1/2 Res</Button>
+              <Button Classes="secondary" Name="BtnFullRes" Padding="8,4" CornerRadius="4" FontSize="11" ToolTip.Tip="Full resolution (1920×1080)">Full</Button>
+              <Button Classes="secondary" Name="BtnHalfRes" Padding="8,4" CornerRadius="4" FontSize="11" ToolTip.Tip="Cycle quality: Full → Half → Quarter">{Binding PreviewQualityLabel}</Button>
             </StackPanel>
 
             <!-- No-timeline placeholder -->
@@ -788,6 +874,13 @@
                     ClipName="{Binding ContextMenuClipName}"
                     TrackId="{Binding ContextMenuTrackId}"
                     PlayheadFrame="{Binding PlayheadFrame}"/>
+
+                  <!-- Keyboard shortcut overlay (full window overlay) -->
+                  <controls:ShortcutOverlay
+                    Name="ShortcutOverlay"
+                    ZIndex="100"
+                    IsVisible="False"
+                    VerticalAlignment="Stretch" HorizontalAlignment="Stretch"/>
                 </Grid>
 
               </Grid>

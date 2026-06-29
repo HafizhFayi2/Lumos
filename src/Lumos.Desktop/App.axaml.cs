@@ -12,6 +12,7 @@ using Lumos.Application.Commands;
 using Lumos.Application.State;
 using Lumos.Domain;
 using Lumos.Application;
+using Lumos.Application.Generation;
 using Lumos.Infrastructure;
 using Lumos.Media;
 using Lumos.Desktop.ViewModels;
@@ -37,14 +38,35 @@ public partial class App : Avalonia.Application
     // AI: null when no API key is configured
     public static AgentService? AgentService { get; private set; }
     public static SemanticSearchService SemanticSearch { get; private set; } = new(new VectorSearchEngine());
+    public static AgentActionHistory ActionHistory { get; private set; } = new();
+    public static TranscriptCache TranscriptCache { get; private set; } = new();
+    public static ModelCatalog ModelCatalog { get; private set; } = new();
+    public static GenerationService GenerationService { get; private set; } = null!;
+    public static GenerationLog GenerationLog { get; private set; } = new();
+    public static MediaFolderStore MediaFolderStore { get; private set; } = new();
     public static IReadOnlyList<AgentToolSchema> McpToolSchemas { get; private set; } = Array.Empty<AgentToolSchema>();
     private static readonly List<AgentMessage> _aiHistory = new();
     public static IReadOnlyList<AgentMessage> AiConversationHistory => _aiHistory;
 
+    // Settings (loaded in Program.Main before Initialize is called)
+    public static LumosSettings? Settings { get; set; }
+
+    // Latest available update info (populated by background check)
+    public static UpdateInfo? PendingUpdate { get; private set; }
+
     // FileSystem watcher for auto-import
     private static FolderWatcher? _folderWatcher;
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        // Apply saved window size before UI loads
+        if (Settings?.Window != null)
+        {
+            // Window position is applied in OnFrameworkInitializationCompleted
+        }
+
+        AvaloniaXamlLoader.Load(this);
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -52,18 +74,73 @@ public partial class App : Avalonia.Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
+            var mainWindow = new MainWindow
             {
                 DataContext = new MainWindowViewModel()
             };
+
+            // Restore window position from settings
+            if (Settings?.Window != null)
+            {
+                var ws = Settings.Window;
+                mainWindow.Width = ws.Width;
+                mainWindow.Height = ws.Height;
+                if (ws.X != 0 || ws.Y != 0)
+                {
+                    mainWindow.Position = new Avalonia.PixelPoint((int)ws.X, (int)ws.Y);
+                }
+                if (ws.Maximized)
+                    mainWindow.WindowState = Avalonia.Controls.WindowState.Maximized;
+            }
+
+            // Set app icon on the window
+            var iconPath = AppIcon.EnsureIconExists();
+            if (iconPath != null)
+            {
+                mainWindow.Icon = new Avalonia.Controls.WindowIcon(iconPath);
+            }
+
+            desktop.MainWindow = mainWindow;
+
             desktop.Exit += (_, _) =>
             {
+                // Save window position
+                if (Settings != null && desktop.MainWindow != null)
+                {
+                    var w = desktop.MainWindow;
+                    Settings.Window = new WindowSettings
+                    {
+                        X = w.Position.X,
+                        Y = w.Position.Y,
+                        Width = w.Width,
+                        Height = w.Height,
+                        Maximized = w.WindowState == Avalonia.Controls.WindowState.Maximized,
+                    };
+                    Settings.Save();
+                }
+
                 Autosave?.SaveNow();
                 McpServer?.StopAsync().GetAwaiter().GetResult();
                 McpServer?.Dispose();
                 _folderWatcher?.Dispose();
                 Autosave?.Dispose();
             };
+
+            // Auto-open the last project if configured
+            if (Settings?.AutoOpenLastProject == true && !string.IsNullOrEmpty(Settings?.LastProjectPath))
+            {
+                var vm = (MainWindowViewModel)mainWindow.DataContext!;
+                if (Directory.Exists(Settings.LastProjectPath))
+                {
+                    vm.OpenProject(Settings.LastProjectPath);
+                }
+            }
+
+            // Check for updates on startup (non-blocking)
+            if (Settings?.CheckForUpdates == true)
+            {
+                _ = CheckForUpdatesAsync();
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -94,16 +171,28 @@ public partial class App : Avalonia.Application
 
         // 4. Autosave
         var projectDir = GetDefaultProjectDir();
-        Autosave = new AutosaveService(EditorStore);
+        Autosave = new AutosaveService(EditorStore, MediaFolderStore, AssetManager);
         Autosave.Start(projectDir);
         RecentProjects.RecordOpen(projectDir, "Untitled Project");
 
-        // 5. Export & MCP
+        // 5. Generative media service
+        GenerationService = new GenerationService(ModelCatalog, AssetManager);
+
+        // Register simulated providers for development (no API keys needed)
+        ModelCatalog.RegisterProvider(new SimulatedImageProvider(),
+            new ModelConfig("simulated-image-v1", "Simulated Image", ModelProviderType.Image, "Simulated Image"));
+        ModelCatalog.RegisterProvider(new SimulatedVideoProvider(),
+            new ModelConfig("simulated-video-v1", "Simulated Video", ModelProviderType.Video, "Simulated Video"));
+        ModelCatalog.RegisterProvider(new SimulatedAudioProvider(),
+            new ModelConfig("simulated-audio-v1", "Simulated Audio", ModelProviderType.Audio, "Simulated Audio"));
+
+        // 6. Export & MCP
         Exporter  = new MediaExporter();
-        McpServer = new McpServer(EditorStore, CommandQueue, Exporter, AssetManager);
+        McpServer = new McpServer(EditorStore, CommandQueue, Exporter, AssetManager, TranscriptCache, ActionHistory, VideoEngine,
+            GenerationService, ModelCatalog, GenerationLog, MediaFolderStore);
         _ = McpServer.StartAsync();
 
-        // 6. AI Agent (optional — requires API key)
+        // 7. AI Agent (optional — requires API key)
         InitializeAgentService();
 
         // 8. Folder watcher
@@ -131,8 +220,17 @@ public partial class App : Avalonia.Application
             "You are Lumos AI, an intelligent co-editor embedded in a professional video editor. " +
             "You can inspect and modify the timeline, import media, and export video using the provided tools. " +
             "Be direct and concise. When performing actions, always call the appropriate tool. " +
-            "Available tools: inspect_timeline, split_clip, trim_clip, move_clip, remove_clips, " +
-            "ripple_delete, list_assets, import_media, export_video, generate_captions.";
+            "\n\nWhen the user mentions @media, @clip, or @timeline, use the available tools to " +
+            "look up the current project context and respond with relevant information. " +
+            "\n\nKey capabilities:\n" +
+            "- Inspect timeline and media with inspect_timeline, get_timeline, get_media, inspect_media\n" +
+            "- Edit clips with split_clip, trim_clip, move_clip, remove_clips\n" +
+            "- Add/insert clips with add_clips, insert_clips, import_media\n" +
+            "- Search with search_transcript and detect highlights/filler words\n" +
+            "- Export video with export_video\n" +
+            "- Verify actions with get_action_history and inspect_frame\n" +
+            "- Manage media folders with list_media_folders, create_media_folder, move_media\n" +
+            "- Manage projects with set_project_settings";
 
         AgentService = new AgentService(() => client, dispatcher, systemPrompt);
 
@@ -193,5 +291,32 @@ public partial class App : Avalonia.Application
 
         // Keep last 20 turns in memory
         while (_aiHistory.Count > 40) _aiHistory.RemoveAt(0);
+    }
+
+    /// Check remote appcast for a newer version and store result in PendingUpdate.
+    private static async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            var info = await UpdateService.CheckForUpdateAsync();
+            if (info != null)
+            {
+                PendingUpdate = info;
+                // Log to MCP activity log so the user sees it
+                if (Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                && desktop.MainWindow?.DataContext is MainWindowViewModel vm)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    vm.McpActivityLogs.Insert(0,
+                        $"[{DateTime.Now:HH:mm:ss}] Update available: v{info.Version} — run 'Check for Updates' in Help menu.");
+                });
+            }
+            }
+        }
+        catch
+        {
+            // Silent: update check is non-critical
+        }
     }
 }

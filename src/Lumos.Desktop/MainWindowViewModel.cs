@@ -17,6 +17,78 @@ public record EffectItemViewModel(string DisplayName, string EffectId, string Ic
 public class MainWindowViewModel : ViewModelBase
 {
     private string _projectName = "Untitled Project";
+    
+    // ── Folder tree state ──────────────────────────────────────────
+    
+    public ObservableCollection<FolderViewModel> FolderRoots { get; } = new();
+    
+    private string? _selectedFolderId;
+    public string? SelectedFolderId
+    {
+        get => _selectedFolderId;
+        set
+        {
+            if (SetProperty(ref _selectedFolderId, value))
+            {
+                RefreshAssets();
+                OnPropertyChanged(nameof(IsAllAssetsSelected));
+                OnPropertyChanged(nameof(SelectedFolderName));
+            }
+        }
+    }
+    
+    public bool IsAllAssetsSelected => SelectedFolderId == null;
+    public string SelectedFolderName => SelectedFolderId switch
+    {
+        null => "All Assets",
+        string id => App.MediaFolderStore.TryGet(id, out var f) ? f!.Name : "All Assets"
+    };
+    
+    public void SelectFolder(string? folderId)
+    {
+        SelectedFolderId = folderId;
+        // Update visual selection state in tree
+        foreach (var root in FolderRoots)
+            UpdateFolderSelection(root, folderId);
+    }
+    
+    private static bool UpdateFolderSelection(FolderViewModel folder, string? selectedId)
+    {
+        bool isSelected = folder.Id == selectedId;
+        folder.IsSelected = isSelected;
+        foreach (var child in folder.Children)
+            isSelected |= UpdateFolderSelection(child, selectedId);
+        return isSelected;
+    }
+    
+    public void RefreshFolderTree()
+    {
+        var allFolders = App.MediaFolderStore.GetAll().ToList();
+        var rootFolders = allFolders.Where(f => f.ParentId == null).OrderBy(f => f.Name).ToList();
+        
+        FolderRoots.Clear();
+        foreach (var root in rootFolders)
+        {
+            var vm = BuildFolderTree(root, allFolders);
+            FolderRoots.Add(vm);
+        }
+        
+        // Restore selection if still valid
+        if (_selectedFolderId != null && allFolders.All(f => f.Id != _selectedFolderId))
+            _selectedFolderId = null;
+    }
+    
+    private FolderViewModel BuildFolderTree(MediaFolderData folder, List<MediaFolderData> allFolders)
+    {
+        var vm = new FolderViewModel(folder, fid =>
+            App.AssetManager.Catalog.GetAll().Count(a => a.FolderId == fid));
+        
+        var children = allFolders.Where(f => f.ParentId == folder.Id).OrderBy(f => f.Name);
+        foreach (var child in children)
+            vm.Children.Add(BuildFolderTree(child, allFolders));
+        
+        return vm;
+    }
     public string ProjectName
     {
         get => _projectName;
@@ -322,6 +394,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             App.VideoEngine.Rebuild();
             RefreshAssets();
+            RefreshFolderTree();
         });
     }
 
@@ -331,6 +404,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             App.VideoEngine.Rebuild();
             RefreshAssets();
+            RefreshFolderTree();
         });
     }
 
@@ -344,17 +418,54 @@ public class MainWindowViewModel : ViewModelBase
         });
     }
 
-    private void RefreshAssets()
+    public void RefreshAssets()
     {
         Assets.Clear();
-        foreach (var asset in App.AssetManager.Catalog.GetAll())
+        var allAssets = App.AssetManager.Catalog.GetAll();
+        foreach (var asset in allAssets)
         {
-            Assets.Add(new AssetViewModel(asset));
+            if (_selectedFolderId == null || asset.FolderId == _selectedFolderId)
+                Assets.Add(new AssetViewModel(asset));
         }
         HasAssets = Assets.Count > 0;
     }
 
-    public void ShowAllAssets() => RefreshAssets();
+    // ── Preview quality ─────────────────────────────────────────────
+
+    private PreviewQuality _previewQuality = PreviewQuality.Half;
+    public PreviewQuality PreviewQuality
+    {
+        get => _previewQuality;
+        set
+        {
+            if (SetProperty(ref _previewQuality, value))
+            {
+                App.EditorStore.UpdatePreviewQuality(value);
+                App.VideoEngine.Rebuild();
+                OnPropertyChanged(nameof(IsFullQuality));
+                OnPropertyChanged(nameof(IsHalfQuality));
+                OnPropertyChanged(nameof(IsQuarterQuality));
+                OnPropertyChanged(nameof(PreviewQualityLabel));
+            }
+        }
+    }
+
+    public bool IsFullQuality => PreviewQuality == PreviewQuality.Full;
+    public bool IsHalfQuality => PreviewQuality == PreviewQuality.Half;
+    public bool IsQuarterQuality => PreviewQuality == PreviewQuality.Quarter;
+    public string PreviewQualityLabel => PreviewQuality switch
+    {
+        PreviewQuality.Full => "Full",
+        PreviewQuality.Half => "1/2",
+        PreviewQuality.Quarter => "1/4",
+        _ => "1/2"
+    };
+
+    public void ShowAllAssets()
+    {
+        SelectFolder(null);
+        RefreshAssets();
+    }
 
     public void FilterAssets(Func<AssetViewModel, bool> predicate)
     {
@@ -498,7 +609,7 @@ public class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        var data = ProjectDataBuilder.BuildFromState(App.EditorStore.State);
+        var data = ProjectDataBuilder.BuildFromState(App.EditorStore.State, App.MediaFolderStore, App.AssetManager);
         App.ProjectSerializer.Save(dir, data);
         App.EditorStore.MarkClean();
         ProjectDir = dir;
@@ -529,6 +640,10 @@ public class MainWindowViewModel : ViewModelBase
         App.EditorStore.SetProject(project.Id, project.Name, timeline);
         App.VideoEngine.Rebuild();
 
+        // Restore folder hierarchy from the project package
+        ProjectDataBuilder.RestoreFolders(App.MediaFolderStore, data.Folders);
+        RefreshFolderTree();
+
         ProjectDir = dir;
         App.RecentProjects.RecordOpen(dir, project.Name);
         App.Autosave.Start(dir);
@@ -544,6 +659,10 @@ public class MainWindowViewModel : ViewModelBase
         var timeline = new Timeline { Width = 1920, Height = 1080, Fps = 30 };
         App.EditorStore.SetProject(projectId, "Untitled Project", timeline);
         App.VideoEngine.Rebuild();
+
+        // Reset folder store to defaults for the new project
+        App.MediaFolderStore.Clear();
+        RefreshFolderTree();
 
         ProjectDir = null;
         var dir = Path.Combine(
@@ -607,6 +726,71 @@ public class MainWindowViewModel : ViewModelBase
             existingTrack.IsHidden = coreTrack.IsHidden;
             existingTrack.IsLocked = coreTrack.IsSyncLocked;
         }
+    }
+}
+
+public class FolderViewModel : ViewModelBase
+{
+    private readonly MediaFolderData _data;
+    private readonly Func<string, int> _getAssetCount;
+
+    public string Id => _data.Id;
+    public string Name => _data.Name;
+    public string? ParentId => _data.ParentId;
+
+    public ObservableCollection<FolderViewModel> Children { get; } = new();
+
+    private bool _isExpanded = true;
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (SetProperty(ref _isExpanded, value))
+            {
+                OnPropertyChanged(nameof(ExpandIcon));
+            }
+        }
+    }
+
+    public string ExpandIcon => IsExpanded ? "▾" : "▸";
+
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (SetProperty(ref _isSelected, value))
+            {
+                OnPropertyChanged(nameof(BackgroundHex));
+            }
+        }
+    }
+
+    public string BackgroundHex => IsSelected ? "#1E3A5F" : "Transparent";
+
+    public int AssetCount => _getAssetCount(Id);
+
+    public string Icon => _data.Name switch
+    {
+        "Imports" => "📁",
+        "Generated" => "⚡",
+        "Music" => "🎵",
+        _ => "📂"
+    };
+
+    public bool HasChildren => Children.Count > 0;
+
+    public FolderViewModel(MediaFolderData data, Func<string, int> getAssetCount)
+    {
+        _data = data;
+        _getAssetCount = getAssetCount;
+    }
+
+    public void ToggleExpanded()
+    {
+        IsExpanded = !IsExpanded;
     }
 }
 

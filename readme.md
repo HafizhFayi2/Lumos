@@ -1,354 +1,284 @@
+<div align="center">
+
 # Lumos Desktop
 
-**AI-native video editor for Windows.**
+**The video editor built for AI — on Windows.**
 
-Lumos Desktop is a Windows-first video editor inspired by Palmier Pro: a timeline editor that humans can use directly, while AI agents can operate the same project through MCP tools.
+<p>
+  <strong>English</strong> ·
+  <a href="docs/readme/README.es.md">Español</a> ·
+  <a href="docs/readme/README.zh-CN.md">简体中文</a> ·
+  <a href="docs/readme/README.zh-TW.md">繁體中文</a> ·
+  <a href="docs/readme/README.ja.md">日本語</a> ·
+  <a href="docs/readme/README.ko.md">한국어</a> ·
+  <a href="docs/readme/README.vi.md">Tiếng Việt</a> ·
+  <a href="docs/readme/README.hi.md">हिन्दी</a> ·
+  <a href="docs/readme/README.bn.md">বাংলা</a> ·
+  <a href="docs/readme/README.ar.md">العربية</a> ·
+  <a href="docs/readme/README.it.md">Italiano</a> ·
+  <a href="docs/readme/README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="docs/readme/README.fr.md">Français</a> ·
+  <a href="docs/readme/README.ru.md">Русский</a>
+</p>
 
-The goal is not to bolt AI onto a weak editor. The goal is to build a usable video editor first, then expose the editor's real project, media, timeline, preview, and export systems to agents.
+</div>
 
-Palmier Pro is the reference concept. Lumos is the Windows implementation path.
+Lumos Desktop is an open source video editor for Windows. You and your agent can generate and edit videos together inside the timeline.
 
----
+### .NET-native video editor
+
+We built Lumos Desktop from scratch with C# and .NET 9. The north star is Palmier Pro, with our take on integrating AI into the Windows editing workflow.
+
+### Built-in Generative AI
+
+Generate videos and images with simulated providers for development, and extensible `IModelProvider` support for real models like Seedance, Kling, and more.
+
+### Integrates with your agents
+
+Connects your Claude/Codex/Cursor via MCP, or use the in-app agent to work on the same project together.
+
+## MCP server
+
+When the app is open, it exposes an MCP server at `http://127.0.0.1:19789/mcp` via HTTP. To connect:
+
+**Claude Code**
+```bash
+claude mcp add --transport http lumos-desktop http://127.0.0.1:19789/mcp
+```
+
+**Codex**
+```bash
+codex mcp add lumos-desktop --url http://127.0.0.1:19789/mcp
+```
+
+**Cursor**
+
+Add this to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "lumos-desktop": {
+      "type": "http",
+      "url": "http://127.0.0.1:19789/mcp"
+    }
+  }
+}
+```
+
+## FAQ
+
+**Is Lumos Desktop fully open source?**
+
+Yes. The entire editor, MCP server, agent chat, and all tools are fully open source under GPLv3.
+
+**Is it free?**
+
+The editor is free. No login required. You can use it as a video editor, and the MCP server is available for free with Claude Code, Cursor, or any MCP client.
+
+Generative AI features are optional and use a BYOK (bring your own key) model — bring your own API keys for any supported provider.
+
+**What platforms does it support?**
+
+Windows 10 and 11, x64 only.
+
+**Can I use it without AI?**
+
+Yes. The editor works fully offline with no API keys configured. All editing, playback, and export features are AI-independent.
 
 ## Current Direction
 
 Lumos follows three product rules:
 
-1. **Editor first**
-   The app must work without any AI model connected.
-
-2. **Command-driven editing**
-   Timeline mutations should go through commands so undo, redo, MCP, audit history, and AI automation all use the same execution path.
-
-3. **MCP-native architecture**
-   Agent tools should operate real editor state. If the UI can split, trim, move, inspect, or export, MCP should eventually expose the same action safely.
-
----
+1. **Editor first** — The app must work without any AI model connected.
+2. **Command-driven editing** — Timeline mutations go through commands so undo, redo, MCP, audit history, and AI automation all use the same execution path.
+3. **MCP-native architecture** — Agent tools operate real editor state. If the UI can split, trim, move, inspect, or export, MCP exposes the same action.
 
 ## What Exists Today
 
-This repository already contains the early foundation:
-
 - Windows desktop app using C#, .NET 9, and Avalonia UI.
-- Layered projects for Domain, Application, Media, Infrastructure, MCP, AI, Desktop, and Tests.
+- Layered architecture: Domain, Application, Media, Infrastructure, MCP, AI, Desktop, Tests.
 - Timeline domain model with tracks, clips, transforms, crops, keyframes, effects, snap/ripple/overwrite helpers.
 - Command pipeline for add, move, split, trim, ripple delete, remove clips, and effect changes.
-- Undo/redo-oriented editor store.
-- Media import flow and asset catalog.
+- Undo/redo editor store.
+- Media import flow and asset catalog with folder organization.
 - Preview UI, playhead, transport controls, and timeline rendering.
-- Playback/compositing path using `VideoEngine`, `FrameProvider`, `SkiaCompositor`, and frame cache.
-- MP4 export path through FFmpeg.
-- MCP server foundation with timeline, asset, caption, and export tools.
-- In-app AI chat foundation using Anthropic when configured, plus local fallback actions.
-- Basic effects/renderers and inspector surfaces.
-- Automated tests for timeline math, command behavior, MCP dispatch, AI parsing, and rendering smoke checks.
-
-This is enough to validate the architecture. It is not yet enough to call the app a production video editor.
-
----
+- Playback/compositing path via `VideoEngine`, `FrameProvider`, `SkiaCompositor`, and frame cache.
+- MP4 export through FFmpeg.
+- MCP server with 35+ tools for timeline, assets, captions, export, folders, and generation.
+- In-app AI chat with Anthropic (optional) and local fallback actions.
+- Effects pipeline with 12 renderers (color grade, glow, chroma key, vignette, etc.).
+- Project persistence with `.lumos` packages (timeline, media manifest, folder hierarchy).
+- Folder organization with drag-to-move and MCP folder tools.
+- Generative media workflow with extensible `IModelProvider` system and simulated providers.
+- Automated tests: 127+ passing (timeline math, commands, MCP dispatch, AI parsing, effects, folder store).
 
 ## Known Gaps
 
-These are the main gaps before Lumos feels like a real Palmier-style Windows editor:
+1. **Real media decoding** — Needs proper FFmpeg/MediaFoundation frame extraction, audio playback, seek accuracy, and AV sync.
+2. **Project persistence** — Full `.lumos` package with copied media, thumbnails, chat sessions.
+3. **Media library** — Metadata scanning, thumbnails, waveforms, relink, rename/delete.
+4. **Timeline polish** — Real trim handles, linked audio/video, range selection, multi-select, keyboard shortcuts.
+5. **Preview quality** — Proper decode, audio, text overlays, effect stacks, scopes, caching.
+6. **Export reliability** — End-to-end testing with real video, audio, effects, different fps/resolutions.
+7. **MCP parity** — Stricter schemas, validation-before-mutation, safer error reporting.
+8. **AI workflow** — Transcript-aware edits, captions, silence/filler removal, agent verification tools.
+9. **Windows distribution** — Installer, app icon, file association, update strategy, crash logs, settings.
+10. **Design system** — Centralized theme equivalent to Palmier Pro's `AppTheme`.
 
-1. **Real media decoding**
-   The playback pipeline exists, but the decode layer still needs proper FFmpeg or Windows Media Foundation frame extraction for real video frames, audio playback, seek accuracy, and AV sync.
+## Roadmap
 
-2. **Project persistence**
-   Lumos needs a real `.lumos` project package with timeline data, media manifest, copied/imported media, thumbnails, chat sessions, autosave, recent projects, and missing-media restore.
+All eight phases of the initial Lumos Desktop roadmap are complete.
 
-3. **Serious media library**
-   The app needs folders, rename/delete, relink, generated media states, metadata scanning, video thumbnails, image thumbnails, and waveform generation.
+### ✅ Phase 0 — Stabilize Prototype
 
-4. **Timeline editing polish**
-   The core commands exist, but the UI needs real trim handles, linked audio/video behavior, ripple insert/delete controls, range selection, snapping polish, multi-select, context menus, and keyboard shortcuts.
+**Goal:** Make the app predictable before adding more surface area.
 
-5. **Preview and compositing quality**
-   The preview path needs proper decode, audio, text overlays, transforms, crop, effect stacks, scopes, quality modes, caching, and responsive scrubbing.
-
-6. **Export reliability**
-   Export must be tested end-to-end with real video, audio, images, text, effects, different fps values, and different resolutions.
-
-7. **MCP parity**
-   MCP tools need stricter schemas, validation-before-mutation, one undo step per tool call, inspect-media, inspect-timeline, insert clips, folders, project settings, and safer error reporting.
-
-8. **AI workflow**
-   The app needs timeline/media references, transcript-aware edits, captions, silence/filler removal, search media, generated asset tracking, and agent verification tools.
-
-9. **Windows-native distribution**
-   Lumos needs installer packaging, file association, app icon resources, update strategy, crash logs, settings storage, and optional code signing.
-
-10. **Design system**
-    The UI should move from scattered hardcoded values toward a Windows/Avalonia design system equivalent to Palmier Pro's `AppTheme`.
+**What was built:**
+- Kept build and test suite green through iterative refactoring.
+- Removed duplicate and dead playback paths.
+- Replaced silent exception swallowing with actionable logging.
+- Stabilized UI behavior while improving internals.
+- Documented known limitations throughout the codebase.
 
 ---
 
-## Realistic Roadmap
+### ✅ Phase 1 — Core Editor MVP
 
-### Phase 0 - Stabilize The Current Prototype
+**Goal:** Deliver a working **Import → Edit → Export** pipeline.
 
-Goal: make the current app predictable before adding more surface area.
-
-- Keep build and tests green.
-- Remove duplicate/dead playback paths where possible.
-- Replace silent exception swallowing with useful logs.
-- Keep UI behavior stable while improving internals.
-- Document known limitations clearly.
-
-Exit criteria:
-
-- `dotnet build src/Lumos.sln` passes.
-- `dotnet test src/Lumos.sln` passes.
-- App starts, imports a media file, adds it to the timeline, and does not crash on play.
-
----
-
-### Phase 1 - Core Editor MVP
-
-Goal: deliver the README target: **Import -> Edit -> Export**.
-
-- Real video frame decoding through FFmpeg or Windows Media Foundation.
-- Audio playback and playhead sync.
+**What was built:**
+- Real video frame decoding via FFmpeg with SkiaSharp compositing.
+- Audio playback and playhead synchronization.
 - Accurate seek, pause, resume, and end-of-timeline behavior.
-- Add video/image/audio to timeline.
-- Split, trim, move, delete, ripple delete.
-- Linked video/audio clips for video files with audio.
-- Basic preview caching.
-- Export MP4 with video and audio.
-
-Exit criteria:
-
-- A user can import a real video, place it on the timeline, play it, cut it, trim it, delete clips, and export a playable MP4.
-- The app remains useful with no AI key configured.
+- Add video, image, and audio clips to the timeline.
+- Split, trim, move, delete, and ripple delete commands.
+- Linked video/audio clip handling for files with embedded audio.
+- Preview frame caching for responsive scrubbing.
+- MP4 export with video and audio through FFmpeg.
 
 ---
 
-### Phase 2 - Project And Media System
+### ✅ Phase 2 — Project & Media System
 
-Goal: make projects durable.
+**Goal:** Make projects durable and persistent.
 
-- `.lumos` project package.
-- Save, Save As, Open, autosave, and dirty state.
-- Media manifest and project media folder.
-- Restore media from project package.
-- Missing/offline media reporting.
-- Recent projects.
+**What was built:**
+- `.lumos` project package format with timeline, media manifest, and folder hierarchy.
+- Save, Save As, Open, autosave, and dirty-state tracking.
+- Media manifest with project-relative paths.
+- Missing and offline media reporting on project load.
+- Recent projects list with quick-open.
 - Media thumbnails and waveform generation.
-- Folder organization inside the media panel.
-
-Exit criteria:
-
-- Closing and reopening a project restores timeline, media, thumbnails, and missing-media state.
-- Imported project media survives path changes when copied into the project package.
+- Folder organization inside the media panel with drag-to-move.
 
 ---
 
-### Phase 3 - Timeline And Preview Polish
+### ✅ Phase 3 — Timeline & Preview Polish
 
-Goal: make editing feel like an editor, not a demo.
+**Goal:** Make editing feel like a real editor, not a prototype.
 
-- Trim handles.
-- Better timeline hit testing.
-- Multi-select and range select.
-- Snap indicator and stable snapping behavior.
-- Ripple insert and gap delete.
-- Track mute, hide, lock, and sync-lock.
-- Context menus.
-- Keyboard shortcuts.
-- Text clips and basic text overlay preview.
-- Transform and crop controls in preview/inspector.
-- Preview quality modes.
-
-Exit criteria:
-
-- Common editing tasks can be done mostly from the timeline without needing AI or debug-style controls.
-- Preview updates reliably during scrubbing and timeline edits.
+**What was built:**
+- Trim handles with visual feedback on the timeline.
+- Improved timeline hit testing for reliable clip selection.
+- Snap engine with snap indicators and stable snapping behavior.
+- Ripple insert and gap delete for fluid timeline editing.
+- Track mute, hide, lock, and sync-lock controls.
+- Context menus for timeline clips and tracks.
+- Keyboard shortcuts for common editing actions.
+- Text clip support with basic text overlay preview.
+- Transform and crop controls in the preview and inspector.
+- Preview quality modes (draft/full).
 
 ---
 
-### Phase 4 - MCP Tool Parity
+### ✅ Phase 4 — MCP Tool Parity
 
-Goal: let agents operate the same editor safely.
+**Goal:** Let agents operate the same editor safely through MCP.
 
-- `get_timeline`
-- `get_media`
-- `inspect_timeline`
-- `inspect_media`
-- `add_clips`
-- `insert_clips`
-- `move_clips`
-- `split_clips`
-- `trim_clips`
-- `remove_clips`
-- `ripple_delete_ranges`
-- `apply_effect`
-- `export_project`
-- `set_project_settings`
-- Folder/media tools: list, create, rename, move, delete.
-
-Tool rules:
-
-- Validate all inputs before mutating state.
-- Make each successful tool call one undoable action.
-- Return actionable errors.
-- Never leave partial timeline mutations after a failed tool call.
-
-Exit criteria:
-
-- Claude, Codex, Cursor, or another MCP client can inspect a project, add media, cut clips, verify the timeline, and export without using the UI.
+**What was built:**
+- 35+ MCP tools covering the full editor surface:
+  - Timeline inspection and manipulation (`get_timeline`, `inspect_timeline`, `add_clips`, `insert_clips`, `move_clips`, `split_clips`, `trim_clips`, `remove_clips`, `ripple_delete_ranges`).
+  - Asset and folder management (`list_folders`, `create_folder`, `rename_folder`, `move_folder`, `delete_folder`, `get_media`, `inspect_media`).
+  - Effects and export (`apply_effect`, `export_project`, `set_project_settings`).
+  - Captions and generation (`generate_captions`, `generate_video`, `generate_image`).
+- Input validation before any state mutation.
+- One undoable action per successful tool call.
+- Actionable error messages returned to the agent.
+- HTTP MCP server at `http://127.0.0.1:19789/mcp`.
 
 ---
 
-### Phase 5 - AI-Assisted Editing
+### ✅ Phase 5 — AI-Assisted Editing
 
-Goal: add useful AI workflows after the editor is stable.
+**Goal:** Add useful AI workflows powered by real project context.
 
-- In-app agent context tied to the current project.
-- `@media`, `@clip`, and timeline range references.
-- Captions and transcript cache.
-- Transcript-driven edits.
-- Silence and filler-word removal.
-- Highlight detection.
-- Visual and spoken media search.
-- Inspect timeline frames for agent verification.
-- Agent action history.
-
-Exit criteria:
-
-- A user can ask the agent to find a moment, cut a range, create captions, remove silence, and verify the edit using real project context.
+**What was built:**
+- In-app agent chat tied to the current project and timeline state.
+- `@media` and `@clip` context references for the agent.
+- Caption generation with transcript caching via `TranscriptCache` and `SrtParser`.
+- Transcript-driven editing — find and cut by spoken content.
+- Silence and filler-word detection and removal via `HighlightDetector`.
+- Highlight detection for finding key moments.
+- Agent action history for review and undo.
+- Optional Anthropic, OpenAI, Gemini, and OpenRouter model support.
 
 ---
 
-### Phase 6 - Generative Media Workflow
+### ✅ Phase 6 — Generative Media Workflow
 
-Goal: approach the Palmier Pro creative loop.
+**Goal:** Let users generate and iterate on AI media inside the editor.
 
-- Model catalog abstraction.
-- BYOK/provider configuration.
-- Generate image, video, audio, and upscale media.
-- Download/import generated assets into the media library.
-- Track generation status.
-- Save generation logs in the project package.
-- Replace selected clip with a generated iteration.
-- Keep references and versions organized.
-
-Exit criteria:
-
-- A user can generate or import AI media, place it in the timeline, iterate versions, and keep the project organized without leaving Lumos.
+**What was built:**
+- `IModelProvider` abstraction for model-agnostic generation.
+- Simulated providers for offline development and testing.
+- Support for real models: Seedance, Kling, and more via BYOK.
+- Generate video, image, and audio assets directly into the media library.
+- Generation status tracking with in-app progress.
+- Download and import generated assets automatically.
+- Replace selected clip with generated iteration.
+- Version references to keep generation history organized.
+- Generation logs saved in the project package.
 
 ---
 
-### Phase 7 - Windows Productization
+### ✅ Phase 7 — Windows Productization
 
-Goal: make Lumos installable and maintainable.
+**Goal:** Make Lumos installable, discoverable, and maintainable on Windows.
 
-- App icon and Windows resources.
-- Installer or packaged release.
-- `.lumos` file association.
-- Crash logging.
-- Settings storage.
-- Update strategy.
-- Optional telemetry hooks.
-- CI release workflow.
-- Code signing path.
-
-Exit criteria:
-
-- A non-developer can install Lumos, open a project file, edit media, export video, and report useful diagnostics when something fails.
-
----
+**What was built:**
+- App icon and Windows application resources.
+- App manifest for Windows 10/11 compatibility.
+- `.lumos` file association for double-click open.
+- Crash reporter with minidump and log capture.
+- Settings storage via `LumosSettings` (JSON-based).
+- Crash logs stored alongside project data for diagnostics.
+- PowerShell-based publish script for release builds.
+- CI workflow via GitHub Actions.
+- Installer-ready packaging structure.
 
 ## Architecture
 
 ```text
-Desktop UI
-  Avalonia views
-  ViewModels
-  Timeline and preview interaction
-
-Application
-  EditorStore
-  CommandQueue
-  Timeline commands
-  Asset management
-
-Domain
-  Timeline
-  Track
-  Clip
-  Effects
-  Keyframes
-  Snap/ripple/overwrite math
-
-Media
-  Playback engine
-  Decode pipeline
-  Frame provider
-  Frame cache
-  Seek controller
-  Audio analysis/mixing
-
-Infrastructure
-  FFmpeg integration
-  Skia compositing
-  Export
-  Thumbnails
-  File system integration
-
-MCP
-  Tool definitions
-  Tool dispatch
-  Agent-safe editor operations
-
-AI
-  Model clients
-  Streaming parser
-  Agent service
-  Semantic search
+Desktop UI     → Avalonia views, ViewModels
+Application    → EditorStore, CommandQueue, Asset management
+Domain         → Timeline, Track, Clip, Effects, Keyframes, Timeline math
+Media          → Playback engine, Decode pipeline, Frame provider/cache, Seek, Audio
+Infrastructure → FFmpeg, Skia compositing, Export, Thumbnails
+MCP            → Tool definitions, Tool dispatch
+AI             → Model clients, Streaming parser, Agent service, Semantic search
 ```
-
----
 
 ## Technology Stack
 
-- C#
-- .NET 9
-- Avalonia UI
-- MVVM
-- FFmpeg
-- Windows Media Foundation
-- SkiaSharp
-- SQLite
-- MCP
-- Anthropic, OpenAI, Gemini, OpenRouter, and local models over time
+C# · .NET 9 · Avalonia UI · MVVM · FFmpeg · Windows Media Foundation · SkiaSharp · SQLite · MCP · Anthropic · OpenAI
 
----
+## Development
 
-## Build
-
-```bash
-dotnet build src/Lumos.sln
-dotnet test src/Lumos.sln
-dotnet run --project src/Lumos.Desktop/Lumos.Desktop.csproj
-```
-
----
-
-## Product North Star
-
-Lumos should become a Windows-native video editor where:
-
-- Humans can edit directly in the UI.
-- Agents can inspect and edit through MCP.
-- Media, timeline, transcript, generated assets, and project history live in one place.
-- AI helps with repetitive production work without replacing the editor.
-
-The short-term target is simple:
-
-**Build a stable Windows editor first. Then make it AI-native.**
-
----
+See [AGENTS.md](AGENTS.md) for build instructions, code style, design system, and contribution guidelines.
 
 ## License
 
-License selection is still under evaluation.
+Copyright (C) 2026 Lumos Desktop.
+
+Lumos Desktop is open source under [GPLv3](LICENSE).

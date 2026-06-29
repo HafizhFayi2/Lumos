@@ -18,6 +18,7 @@ public sealed record EditorState
     public DragState DragState { get; init; } = new DragState.Idle();
     public PreviewTab ActivePreviewTab { get; init; } = PreviewTab.Timeline;
     public System.Collections.Immutable.ImmutableList<PreviewTab> PreviewTabs { get; init; } = System.Collections.Immutable.ImmutableList.Create<PreviewTab>(PreviewTab.Timeline);
+    public PreviewQuality PreviewQuality { get; init; } = PreviewQuality.Half;
 
     /// Project metadata
     public Guid ProjectId { get; init; } = Guid.NewGuid();

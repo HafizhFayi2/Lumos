@@ -20,32 +20,42 @@ public sealed class CompositionBuilder
 
         foreach (var track in _timeline.Tracks)
         {
+            if (track == null) continue;
             if (track.IsHidden && track.Type.IsVisual()) continue;
             if (track.IsMuted  && track.Type == ClipType.Audio) continue;
+            if (track.Clips == null) continue;
 
             foreach (var clip in track.Clips)
             {
+                if (clip == null) continue;
                 if (!clip.Contains(timelineFrame)) continue;
 
-                int localFrame  = timelineFrame - clip.StartFrame;
-                int sourceFrame = clip.TrimStartFrame + (int)Math.Round(localFrame * clip.Speed);
+                try
+                {
+                    int localFrame  = timelineFrame - clip.StartFrame;
+                    int sourceFrame = clip.TrimStartFrame + (int)Math.Round(localFrame * clip.Speed);
 
-                var slot = new CompositionSlot(
-                    Clip:       clip,
-                    AssetPath:  clip.MediaRef,
-                    SourceFrame: sourceFrame,
-                    Opacity:    clip.OpacityAt(timelineFrame),
-                    Volume:     clip.VolumeAt(timelineFrame),
-                    Transform:  clip.TransformAt(timelineFrame),
-                    Crop:       clip.CropAt(timelineFrame),
-                    RenderType: clip.MediaType,
-                    Effects:    clip.Effects
-                );
+                    var slot = new CompositionSlot(
+                        Clip:       clip,
+                        AssetPath:  clip.MediaRef ?? string.Empty,
+                        SourceFrame: Math.Max(0, sourceFrame),
+                        Opacity:    clip.OpacityAt(timelineFrame),
+                        Volume:     clip.VolumeAt(timelineFrame),
+                        Transform:  clip.TransformAt(timelineFrame),
+                        Crop:       clip.CropAt(timelineFrame),
+                        RenderType: clip.MediaType,
+                        Effects:    clip.Effects ?? new List<Effect>()
+                    );
 
-                if (clip.MediaType == ClipType.Audio)
-                    audio.Add(slot);
-                else
-                    visual.Add(slot);
+                    if (clip.MediaType == ClipType.Audio)
+                        audio.Add(slot);
+                    else
+                        visual.Add(slot);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CompositionBuilder] Skipping clip {clip.Id} at frame {timelineFrame}: {ex.Message}");
+                }
             }
         }
 

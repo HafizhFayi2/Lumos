@@ -31,8 +31,8 @@ public partial class MainWindow : Window
 
     // Reused preview bitmap — allocated once to avoid per-frame GC pressure
     private WriteableBitmap? _previewBitmap;
-    private const int PreviewW = 960;
-    private const int PreviewH = 540;
+    private int _previewW = 960;
+    private int _previewH = 540;
 
     public MainWindow()
     {
@@ -57,8 +57,9 @@ public partial class MainWindow : Window
         this.FindControl<Button>("ToolPointer")!.Click  += (_, _) => SetToolMode(ToolMode.Pointer);
         this.FindControl<Button>("ToolRazor")!.Click    += (_, _) => SetToolMode(ToolMode.Razor);
 
-        // Fit / HalfRes zoom buttons
+        // Fit / FullRes / HalfRes zoom buttons
         this.FindControl<Button>("BtnFitZoom")!.Click   += OnFitZoomClicked;
+        this.FindControl<Button>("BtnFullRes")!.Click   += OnFullResClicked;
         this.FindControl<Button>("BtnHalfRes")!.Click   += OnHalfResClicked;
 
         // Export cancel
@@ -106,6 +107,9 @@ public partial class MainWindow : Window
 
         // Sync initial tool state
         RefreshToolButtons(App.EditorStore.State.ToolMode);
+        
+        // Wire folder drag-drop (Avalonia requires AddHandler in code-behind)
+        WireFolderDragDrop();
 
         // Clip context menu
         var clipCtx = this.FindControl<Controls.TimelineClipContextMenu>("ClipContextMenu");
@@ -208,7 +212,10 @@ public partial class MainWindow : Window
 
             case Key.Delete:
             case Key.Back:
-                DeleteSelectedClip();
+                if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                    RippleDeleteSelected();
+                else
+                    DeleteSelectedClip();
                 e.Handled = true;
                 break;
 
@@ -237,7 +244,185 @@ public partial class MainWindow : Window
                 VM.NewProject();
                 e.Handled = true;
                 break;
+
+            // Ctrl+/ or ? toggle shortcut overlay
+            // Oem2 is / on US keyboards, ? is Oem2+Shift. Both toggle the overlay.
+            case Key.Oem2:
+                ToggleShortcutOverlay();
+                e.Handled = true;
+                break;
+
+            // I key for inspector
+            case Key.I when !ctrl:
+                VM.ActiveAITab = "Inspector";
+                e.Handled = true;
+                break;
+
+            // ── J-K-L shuttle ───────────────────────────────────────────────
+            case Key.J:
+            {
+                int jTarget = Math.Max(0, App.EditorStore.State.PlayheadFrame - 1);
+                App.VideoEngine.Seek(jTarget);
+                e.Handled = true;
+                break;
+            }
+
+            case Key.K:
+                App.VideoEngine.TogglePlayback();
+                e.Handled = true;
+                break;
+
+            case Key.L:
+            {
+                int lTarget = App.EditorStore.State.PlayheadFrame + 1;
+                if (lTarget < App.EditorStore.State.TotalFrames)
+                    App.VideoEngine.Seek(lTarget);
+                else if (!App.EditorStore.State.IsPlaying)
+                    App.VideoEngine.TogglePlayback();
+                e.Handled = true;
+                break;
+            }
+
+            // ── Frame stepping & nudge ─────────────────────────────────────
+            case Key.Left:
+            {
+                bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+                if (alt)
+                {
+                    int nudge = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 5 : 1;
+                    NudgeSelectedClip(-nudge);
+                }
+                else
+                {
+                    int step = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 5 : 1;
+                    App.VideoEngine.Seek(Math.Max(0, App.EditorStore.State.PlayheadFrame - step));
+                }
+                e.Handled = true;
+                break;
+            }
+
+            case Key.Right:
+            {
+                bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+                if (alt)
+                {
+                    int nudge = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 5 : 1;
+                    NudgeSelectedClip(nudge);
+                }
+                else
+                {
+                    int step = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 5 : 1;
+                    int total = App.EditorStore.State.TotalFrames;
+                    App.VideoEngine.Seek(Math.Min(Math.Max(0, total - 1), App.EditorStore.State.PlayheadFrame + step));
+                }
+                e.Handled = true;
+                break;
+            }
+
+            // ── Navigation ──────────────────────────────────────────────────
+            case Key.Home:
+                App.VideoEngine.Seek(0);
+                e.Handled = true;
+                break;
+
+            case Key.End:
+                App.VideoEngine.Seek(Math.Max(0, App.EditorStore.State.TotalFrames));
+                e.Handled = true;
+                break;
+
+            case Key.Up:
+                SelectAdjacentClip(direction: -1);
+                e.Handled = true;
+                break;
+
+            case Key.Down:
+                SelectAdjacentClip(direction: 1);
+                e.Handled = true;
+                break;
+
+            // ── Editing shortcuts ───────────────────────────────────────────
+            case Key.S when !ctrl:
+                SplitSelectedAtPlayhead();
+                e.Handled = true;
+                break;
+
+            case Key.A when ctrl:
+                SelectAllClips();
+                e.Handled = true;
+                break;
+
+            case Key.D when ctrl:
+                DuplicateSelectedClip();
+                e.Handled = true;
+                break;
+
+            case Key.E when ctrl:
+                OnExportClicked(null, new RoutedEventArgs());
+                e.Handled = true;
+                break;
+
+            case Key.OemOpenBrackets:
+                TrimClipToPlayhead(trimStart: true);
+                e.Handled = true;
+                break;
+
+            case Key.OemCloseBrackets:
+                TrimClipToPlayhead(trimStart: false);
+                e.Handled = true;
+                break;
+
+
+
+
+            // ── Tool toggle ─────────────────────────────────────────────────
+            case Key.T when !ctrl:
+                ToggleToolMode();
+                e.Handled = true;
+                break;
+
+            // ── Zoom ────────────────────────────────────────────────────────
+            case Key.OemPlus:
+            case Key.Add:
+                VM.ZoomIn();
+                e.Handled = true;
+                break;
+
+            case Key.OemMinus:
+            case Key.Subtract:
+                VM.ZoomOut();
+                e.Handled = true;
+                break;
+
+            // ── Marker ──────────────────────────────────────────────────────
+            case Key.M when !ctrl:
+                AddMarkerAtPlayhead();
+                e.Handled = true;
+                break;
+
+            case Key.D1 when ctrl:
+                VM.PreviewQuality = PreviewQuality.Full;
+                e.Handled = true;
+                break;
+            case Key.D2 when ctrl:
+                VM.PreviewQuality = PreviewQuality.Half;
+                e.Handled = true;
+                break;
+            case Key.D3 when ctrl:
+                VM.PreviewQuality = PreviewQuality.Quarter;
+                e.Handled = true;
+                break;
+            case Key.D0 when ctrl:
+                OnFitZoomClicked(null, new RoutedEventArgs());
+                e.Handled = true;
+                break;
         }
+    }
+
+    private void ToggleShortcutOverlay()
+    {
+        var overlay = this.FindControl<Controls.ShortcutOverlay>("ShortcutOverlay");
+        if (overlay != null)
+            overlay.IsOpen = !overlay.IsOpen;
     }
 
     private void DeleteSelectedClip()
@@ -247,6 +432,251 @@ public partial class MainWindow : Window
         var cmd = new RemoveClipsAsyncCommand(selectedIds);
         App.CommandQueue.Enqueue(cmd);
         App.EditorStore.Dispatch(state => (state with { Selection = state.Selection.ClearClipSelection() }, StateField.Selection));
+    }
+
+    private void SelectAllClips()
+    {
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        if (timeline == null) return;
+        var allIds = timeline.Tracks.SelectMany(t => t.Clips).Select(c => c.Id).ToList();
+        if (allIds.Count == 0) return;
+        App.EditorStore.UpdateSelection(s => s.SelectClips(allIds, false));
+    }
+
+    private void SplitSelectedAtPlayhead()
+    {
+        var selectedId = App.EditorStore.State.Selection.SelectedClipIds.FirstOrDefault();
+        if (selectedId == null) return;
+        int playhead = App.EditorStore.State.PlayheadFrame;
+        var cmd = new SplitClipAsyncCommand(selectedId, playhead);
+        App.CommandQueue.Enqueue(cmd);
+        App.VideoEngine.Rebuild();
+        VM.McpActivityLogs.Insert(0, $"[Shortcut] Split clip {selectedId} at frame {playhead}");
+    }
+
+    private void DuplicateSelectedClip()
+    {
+        var selectedId = App.EditorStore.State.Selection.SelectedClipIds.FirstOrDefault();
+        if (selectedId == null) return;
+
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        if (timeline == null) return;
+
+        Clip? clip = null;
+        Track? track = null;
+        foreach (var t in timeline.Tracks)
+        {
+            var c = t.Clips.FirstOrDefault(x => x.Id == selectedId);
+            if (c != null) { clip = c; track = t; break; }
+        }
+        if (clip == null || track == null) return;
+
+        // Find the matching asset by file path
+        Asset? asset = null;
+        if (App.AssetManager.Catalog.TryGetByPath(clip.MediaRef, out var foundAsset))
+            asset = foundAsset;
+
+        if (asset == null)
+        {
+            // No matching asset in catalog — clone the clip directly via timeline mutation
+            int insertFrame = clip.EndFrame;
+            var clone = clip.Clone(newId: true);
+            clone.StartFrame = insertFrame;
+            track.Clips.Add(clone);
+            track.Clips = track.Clips.OrderBy(c => c.StartFrame).ToList();
+            App.EditorStore.MutateTimelineSilent(_ => { });
+            App.VideoEngine.Rebuild();
+            VM.McpActivityLogs.Insert(0, $"[Shortcut] Duplicated clip {clip.Id} at frame {insertFrame}");
+            return;
+        }
+
+        int newStart = clip.EndFrame;
+        var cmd = new AddClipsAsyncCommand(new[] { asset }, track.Id, newStart);
+        App.CommandQueue.Enqueue(cmd);
+        App.VideoEngine.Rebuild();
+        VM.McpActivityLogs.Insert(0, $"[Shortcut] Duplicated clip {clip.Id} at frame {newStart}");
+    }
+
+    private void TrimClipToPlayhead(bool trimStart)
+    {
+        var selectedId = App.EditorStore.State.Selection.SelectedClipIds.FirstOrDefault();
+        if (selectedId == null) return;
+
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        if (timeline == null) return;
+
+        Clip? clip = null;
+        foreach (var t in timeline.Tracks)
+        {
+            var c = t.Clips.FirstOrDefault(x => x.Id == selectedId);
+            if (c != null) { clip = c; break; }
+        }
+        if (clip == null) return;
+
+        int playhead = App.EditorStore.State.PlayheadFrame;
+        if (!clip.Contains(playhead)) return;
+
+        if (trimStart)
+        {
+            // Trim start to playhead: keep the portion from playhead onward
+            int relFrame = playhead - clip.StartFrame;
+            int sourceToSkip = (int)Math.Round(relFrame * clip.Speed);
+            int newTrimStart = clip.TrimStartFrame + sourceToSkip;
+            var cmd = new TrimClipAsyncCommand(clip.Id, newTrimStart, clip.TrimEndFrame);
+            App.CommandQueue.Enqueue(cmd);
+        }
+        else
+        {
+            // Trim end to playhead: keep the portion up to playhead
+            int relFrame = playhead - clip.StartFrame;
+            int sourceConsumed = (int)Math.Round(relFrame * clip.Speed);
+            int originalTotalSource = clip.SourceFramesConsumed + clip.TrimEndFrame;
+            int newTrimEnd = originalTotalSource - sourceConsumed;
+            newTrimEnd = Math.Max(0, newTrimEnd);
+            var cmd = new TrimClipAsyncCommand(clip.Id, clip.TrimStartFrame, newTrimEnd);
+            App.CommandQueue.Enqueue(cmd);
+        }
+
+        App.VideoEngine.Rebuild();
+        VM.McpActivityLogs.Insert(0, $"[Shortcut] Trim {(trimStart ? "start" : "end")} of {clip.Id} to frame {playhead}");
+    }
+
+    private void RippleDeleteSelected()
+    {
+        var selectedIds = App.EditorStore.State.Selection.SelectedClipIds.ToArray();
+        if (selectedIds.Length == 0) return;
+        var cmd = new RippleDeleteAsyncCommand(selectedIds);
+        App.CommandQueue.Enqueue(cmd);
+        App.EditorStore.Dispatch(state => (state with { Selection = state.Selection.ClearClipSelection() }, StateField.Selection));
+        App.VideoEngine.Rebuild();
+    }
+
+    private void NudgeSelectedClip(int deltaFrames)
+    {
+        var selectedIds = App.EditorStore.State.Selection.SelectedClipIds.ToArray();
+        if (selectedIds.Length == 0) return;
+
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        if (timeline == null) return;
+
+        foreach (var id in selectedIds)
+        {
+            Track? clipTrack = null;
+            Clip? clip = null;
+            foreach (var t in timeline.Tracks)
+            {
+                var c = t.Clips.FirstOrDefault(x => x.Id == id);
+                if (c != null) { clip = c; clipTrack = t; break; }
+            }
+            if (clip == null || clipTrack == null) continue;
+
+            int newStart = Math.Max(0, clip.StartFrame + deltaFrames);
+            var cmd = new MoveClipAsyncCommand(clip.Id, newStart, clipTrack.Id);
+            App.CommandQueue.Enqueue(cmd);
+        }
+
+        App.VideoEngine.Rebuild();
+    }
+
+    private void SelectAdjacentClip(int direction)
+    {
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        if (timeline == null) return;
+
+        var selectedId = App.EditorStore.State.Selection.SelectedClipIds.FirstOrDefault();
+        if (selectedId == null)
+        {
+            // Nothing selected — select the first clip on the first track
+            var firstClip = timeline.Tracks.FirstOrDefault()?.Clips.FirstOrDefault();
+            if (firstClip != null)
+                App.EditorStore.UpdateSelection(s => s.SelectClip(firstClip.Id, false));
+            return;
+        }
+
+        // Find the selected clip and its track
+        Clip? currentClip = null;
+        int currentTrackIdx = -1;
+        for (int ti = 0; ti < timeline.Tracks.Count; ti++)
+        {
+            var c = timeline.Tracks[ti].Clips.FirstOrDefault(x => x.Id == selectedId);
+            if (c != null) { currentClip = c; currentTrackIdx = ti; break; }
+        }
+        if (currentClip == null || currentTrackIdx < 0) return;
+
+        if (direction < 0)
+        {
+            // Go to previous clip (in same track, or previous track)
+            var track = timeline.Tracks[currentTrackIdx];
+            var clipList = track.Clips.OrderBy(c => c.StartFrame).ToList();
+            int idx = clipList.FindIndex(c => c.Id == selectedId);
+            if (idx > 0)
+            {
+                App.EditorStore.UpdateSelection(s => s.SelectClip(clipList[idx - 1].Id, false));
+                App.VideoEngine.Seek(clipList[idx - 1].StartFrame);
+            }
+            else if (currentTrackIdx > 0)
+            {
+                var prevTrack = timeline.Tracks[currentTrackIdx - 1];
+                var lastClip = prevTrack.Clips.OrderBy(c => c.StartFrame).LastOrDefault();
+                if (lastClip != null)
+                {
+                    App.EditorStore.UpdateSelection(s => s.SelectClip(lastClip.Id, false));
+                    App.VideoEngine.Seek(lastClip.StartFrame);
+                }
+            }
+        }
+        else
+        {
+            // Go to next clip (in same track, or next track)
+            var track = timeline.Tracks[currentTrackIdx];
+            var clipList = track.Clips.OrderBy(c => c.StartFrame).ToList();
+            int idx = clipList.FindIndex(c => c.Id == selectedId);
+            if (idx >= 0 && idx < clipList.Count - 1)
+            {
+                App.EditorStore.UpdateSelection(s => s.SelectClip(clipList[idx + 1].Id, false));
+                App.VideoEngine.Seek(clipList[idx + 1].StartFrame);
+            }
+            else if (currentTrackIdx < timeline.Tracks.Count - 1)
+            {
+                var nextTrack = timeline.Tracks[currentTrackIdx + 1];
+                var firstClip = nextTrack.Clips.OrderBy(c => c.StartFrame).FirstOrDefault();
+                if (firstClip != null)
+                {
+                    App.EditorStore.UpdateSelection(s => s.SelectClip(firstClip.Id, false));
+                    App.VideoEngine.Seek(firstClip.StartFrame);
+                }
+            }
+        }
+    }
+
+    private void ToggleToolMode()
+    {
+        var current = App.EditorStore.State.ToolMode;
+        var next = current == ToolMode.Razor ? ToolMode.Pointer : ToolMode.Razor;
+        SetToolMode(next);
+    }
+
+    private void AddMarkerAtPlayhead()
+    {
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        if (timeline == null) return;
+
+        int playhead = App.EditorStore.State.PlayheadFrame;
+
+        // Don't add duplicate markers at the same frame
+        if (timeline.Markers.Any(m => m.Frame == playhead)) return;
+
+        var marker = new Marker
+        {
+            Id = Guid.NewGuid().ToString(),
+            Frame = playhead,
+            Label = $"Marker at {VM.TimeCodeShort}",
+            Color = "#2986F6"
+        };
+
+        timeline.Markers.Add(marker);
+        App.EditorStore.MutateTimelineSilent(_ => { });
+        VM.McpActivityLogs.Insert(0, $"[Shortcut] Added marker at frame {playhead}");
     }
 
     // ── Preview zoom buttons ─────────────────────────────────────────────────
@@ -260,10 +690,25 @@ public partial class MainWindow : Window
         VM.ZoomScale = Math.Clamp(fitScale, 1.0, 15.0);
     }
 
+    private void OnFullResClicked(object? sender, RoutedEventArgs e)
+    {
+        VM.PreviewQuality = PreviewQuality.Full;
+        VM.McpActivityLogs.Insert(0, $"[Preview] Resolution set to Full");
+        _previewBitmap = null;
+    }
+
     private void OnHalfResClicked(object? sender, RoutedEventArgs e)
     {
-        // Toggles half-res label; actual res change would hook into VideoEngine resolution setting
-        VM.McpActivityLogs.Insert(0, "[Preview] Half resolution preview toggled.");
+        // Cycle through quality modes: Full -> Half -> Quarter -> Full
+        VM.PreviewQuality = VM.PreviewQuality switch
+        {
+            PreviewQuality.Full => PreviewQuality.Half,
+            PreviewQuality.Half => PreviewQuality.Quarter,
+            PreviewQuality.Quarter => PreviewQuality.Full,
+            _ => PreviewQuality.Half
+        };
+        VM.McpActivityLogs.Insert(0, $"[Preview] Resolution set to {VM.PreviewQualityLabel}");
+        _previewBitmap = null; // Force re-create WriteableBitmap
     }
 
     // ── Track header buttons (Mute / Hide / Lock) ────────────────────────────
@@ -306,27 +751,44 @@ public partial class MainWindow : Window
 
     private void OnVideoEngineFrameComposited(int frame, byte[] pixelData)
     {
+        if (pixelData == null || pixelData.Length < 4) return;
+        
         Dispatcher.UIThread.Post(() =>
         {
             try
             {
-                if (_previewBitmap == null)
+                // Derive w/h from BGRA pixel data using known resolution pyramid
+                int bpp = 4;
+                int px = pixelData.Length / bpp;
+                var (w, h) = (960, 540); // half-res fallback
+                foreach (var (tw, th) in new[] { (1920, 1080), (960, 540), (480, 270) })
+                    if (tw * th == px) { w = tw; h = th; break; }
+
+                if (_previewBitmap == null || _previewW != w || _previewH != h)
                 {
+                    _previewW = w;
+                    _previewH = h;
                     _previewBitmap = new WriteableBitmap(
-                        new PixelSize(PreviewW, PreviewH),
+                        new PixelSize(w, h),
                         new Vector(96, 96),
                         PixelFormat.Bgra8888,
                         AlphaFormat.Premul);
                 }
 
                 using (var buf = _previewBitmap.Lock())
-                    System.Runtime.InteropServices.Marshal.Copy(pixelData, 0, buf.Address, Math.Min(pixelData.Length, buf.RowBytes * PreviewH));
+                {
+                    int copyLen = Math.Min(pixelData.Length, buf.RowBytes * h);
+                    if (copyLen > 0)
+                        System.Runtime.InteropServices.Marshal.Copy(pixelData, 0, buf.Address, copyLen);
+                }
 
                 var img = this.FindControl<Image>("PreviewImage");
-                // Force re-render by reassigning
                 if (img != null) img.Source = _previewBitmap;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Preview] Frame composite display failed: {ex.Message}");
+            }
         }, DispatcherPriority.Render);
     }
 
@@ -385,6 +847,100 @@ public partial class MainWindow : Window
                 await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
             }
         }
+    }
+
+    // ── Folder tree handlers ────────────────────────────────────────────────
+
+    private void WireFolderDragDrop()
+    {
+        var folderPanel = this.FindControl<StackPanel>("FolderTreePanel");
+        if (folderPanel != null)
+        {
+            folderPanel.AddHandler(DragDrop.DropEvent, OnFolderDrop);
+        }
+        
+        // Defer initial folder tree build until DataContext is set
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (DataContext is MainWindowViewModel vm)
+                vm.RefreshFolderTree();
+        });
+    }
+
+    private void OnFolderItemPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Border border)
+        {
+            var tag = border.Tag as string;
+            if (tag == "__all__")
+            {
+                VM.SelectFolder(null);
+            }
+            else if (tag != null)
+            {
+                VM.SelectFolder(tag);
+            }
+            e.Handled = true;
+        }
+    }
+
+    private void OnFolderTogglePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is TextBlock tb && tb.Tag is FolderViewModel fvm)
+        {
+            fvm.ToggleExpanded();
+            e.Handled = true;
+        }
+    }
+
+    private void OnFolderDrop(object? sender, DragEventArgs e)
+    {
+        if (!e.Data.Contains("AssetViewModel") || e.Data.Get("AssetViewModel") is not AssetViewModel assetVM)
+            return;
+
+        // Walk up from the event source to find the folder Border with a Tag
+        string? folderId = null;
+        var el = e.Source as StyledElement;
+        if (el == null)
+        {
+            VM.McpActivityLogs.Insert(0, "[Folder] Drop ignored: could not determine target");
+            return;
+        }
+
+        while (el != null)
+        {
+            if (el is Border border && border.Tag is string tag)
+            {
+                folderId = tag == "__all__" ? null : tag;
+                break;
+            }
+            el = el.Parent;
+        }
+
+        // Guard: no-op if already in target folder
+        if (assetVM.Asset.FolderId == folderId) return;
+
+        assetVM.Asset.FolderId = folderId;
+        string targetName = folderId != null ? GetFolderName(folderId) : "root";
+        VM.McpActivityLogs.Insert(0, $"[Folder] Moved {assetVM.Name} to {targetName}");
+        VM.RefreshAssets();
+        VM.RefreshFolderTree();
+        e.Handled = true;
+    }
+
+    private string GetFolderName(string folderId)
+    {
+        return App.MediaFolderStore.TryGet(folderId, out var f) ? f!.Name : folderId;
+    }
+
+    private async void OnNewFolderClicked(object? sender, RoutedEventArgs e)
+    {
+        string folderName = $"Folder_{App.MediaFolderStore.GetAll().Count + 1}";
+        string id = folderName.ToLowerInvariant().Replace(" ", "_") + "_" + Guid.NewGuid().ToString("N")[..6];
+        var folder = new MediaFolderData(id, folderName, null);
+        App.MediaFolderStore.TryAdd(folder);
+        VM.RefreshFolderTree();
+        VM.McpActivityLogs.Insert(0, $"[Folder] Created \"{folderName}\"");
     }
 
     private void AddAssetToTimeline(Asset asset)
@@ -680,10 +1236,13 @@ public partial class MainWindow : Window
         var input = this.FindControl<TextBox>("AIChatInput")!;
         if (string.IsNullOrWhiteSpace(input.Text)) return;
 
-        string query = input.Text;
+        string rawQuery = input.Text;
         input.Text = string.Empty;
 
-        VM.AIChatMessages.Add(new ChatMessageViewModel(query, true));
+        // Resolve @media, @clip, @range references before sending to the agent
+        string query = ResolveReferences(rawQuery);
+
+        VM.AIChatMessages.Add(new ChatMessageViewModel(rawQuery, true));
         VM.AITyping = true;
 
         // Placeholder for streaming AI response
@@ -722,6 +1281,93 @@ public partial class MainWindow : Window
         {
             VM.AITyping = false;
         }
+    }
+
+    /// <summary>
+    /// Resolves @clip:id, @media, @media:query, @range:start-end, @frame:n references
+    /// into inline context the agent can work with. References are replaced with
+    /// a bracketed context block so the agent sees resolved data directly.
+    /// </summary>
+    private string ResolveReferences(string input)
+    {
+        var timeline = App.EditorStore.State.Timeline.Timeline;
+        if (timeline == null) return input;
+
+        string result = input;
+
+        // @clip:id — resolve to clip metadata
+        result = System.Text.RegularExpressions.Regex.Replace(result,
+            @"@clip:(\S+)", match =>
+            {
+                string clipId = match.Groups[1].Value;
+                var clip = timeline.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.Id == clipId);
+                if (clip == null) return $"[Clip not found: {clipId}]";
+
+                var track = timeline.Tracks.FirstOrDefault(t => t.Clips.Contains(clip));
+                return $"[Clip: {Path.GetFileNameWithoutExtension(clip.MediaRef)} | " +
+                       $"Track: {track?.Id ?? "?"} | " +
+                       $"Frame: {clip.StartFrame}-{clip.EndFrame} ({clip.DurationFrames}f) | " +
+                       $"Type: {clip.MediaType}]";
+            });
+
+        // @media — resolve to media list (case-insensitive)
+        // First, handle @media:searchterm — filtered by name
+        result = System.Text.RegularExpressions.Regex.Replace(result,
+            @"@media:(\S+)", match =>
+            {
+                string query = match.Groups[1].Value;
+                var assets = App.AssetManager.Catalog.GetAll().Where(a =>
+                    a.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+                return $"[Media matching \"{query}\": {assets.Count} assets — " +
+                    string.Join(", ", assets.Select(a => $"{a.Name} ({a.Type})")) + "]";
+            },
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // Then handle bare @media — replace with asset summary
+        result = System.Text.RegularExpressions.Regex.Replace(result,
+            @"@media\b", match =>
+            {
+                var allAssets = App.AssetManager.Catalog.GetAll();
+                return $"[Media: {allAssets.Count} assets imported — " +
+                    string.Join(", ", allAssets.Take(20).Select(a => $"{a.Name} ({a.Type})")) +
+                    (allAssets.Count > 20 ? $" … and {allAssets.Count - 20} more" : "") + "]";
+            },
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // @range:start-end — resolve to timeline range description
+        result = System.Text.RegularExpressions.Regex.Replace(result,
+            @"@range:(\d+)-(\d+)", match =>
+            {
+                int start = int.Parse(match.Groups[1].Value);
+                int end = int.Parse(match.Groups[2].Value);
+                start = Math.Max(0, start);
+                end = Math.Min(timeline.TotalFrames, end);
+
+                // Find clips overlapping this range
+                var clips = timeline.Tracks.SelectMany(t => t.Clips)
+                    .Where(c => c.StartFrame < end && c.EndFrame > start).ToList();
+
+                return $"[Range {start}-{end} ({end - start}f) | " +
+                       $"{clips.Count} clips overlap | " +
+                       $"FPS: {timeline.Fps} | Duration: {(end - start) / timeline.Fps:F1}s]";
+            });
+
+        // @frame:n — resolve to single frame description
+        result = System.Text.RegularExpressions.Regex.Replace(result,
+            @"@frame:(\d+)", match =>
+            {
+                int frame = int.Parse(match.Groups[1].Value);
+                frame = Math.Clamp(frame, 0, timeline.TotalFrames - 1);
+
+                var clips = timeline.Tracks.SelectMany(t => t.Clips)
+                    .Where(c => c.Contains(frame)).ToList();
+
+                return $"[Frame {frame}/{timeline.TotalFrames} | " +
+                       $"{clips.Count} clips visible | " +
+                       $"Time: {TimeSpan.FromSeconds(frame / timeline.Fps):mm\\:ss\\.fff}]";
+            });
+
+        return result;
     }
 
     private string ProcessAIChatQueryFallback(string query)

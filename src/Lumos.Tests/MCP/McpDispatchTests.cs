@@ -18,10 +18,10 @@ public class McpDispatchTests
 {
     private sealed class NullThumbnailGenerator : IThumbnailGenerator
     {
-        public Task<string> GenerateThumbnailAsync(Asset asset, TimeSpan position)
+        public Task<string> GenerateThumbnailAsync(Asset asset, TimeSpan position, CancellationToken ct = default)
             => Task.FromResult(string.Empty);
 
-        public Task<List<string>> GenerateWaveformAsync(Asset asset)
+        public Task<List<string>> GenerateWaveformAsync(Asset asset, CancellationToken ct = default)
             => Task.FromResult(new List<string>());
     }
 
@@ -31,15 +31,42 @@ public class McpDispatchTests
         var names = new[]
         {
             ToolDefinitions.InspectTimeline,
+            ToolDefinitions.GetTimeline,
             ToolDefinitions.SplitClip,
             ToolDefinitions.TrimClip,
             ToolDefinitions.MoveClip,
             ToolDefinitions.RemoveClips,
             ToolDefinitions.RippleDelete,
+            ToolDefinitions.RippleDeleteRanges,
+            ToolDefinitions.AddClips,
+            ToolDefinitions.InsertClips,
+            ToolDefinitions.ApplyEffect,
             ToolDefinitions.ListAssets,
+            ToolDefinitions.GetMedia,
+            ToolDefinitions.InspectMedia,
             ToolDefinitions.ImportMedia,
+            ToolDefinitions.DeleteMedia,
             ToolDefinitions.ExportVideo,
             ToolDefinitions.GenerateCaptions,
+            ToolDefinitions.SetProjectSettings,
+            ToolDefinitions.ListMediaFolders,
+            ToolDefinitions.CreateMediaFolder,
+            ToolDefinitions.RenameMediaFolder,
+            ToolDefinitions.MoveMedia,
+            ToolDefinitions.DeleteMediaFolder,
+            ToolDefinitions.GetTranscript,
+            ToolDefinitions.SearchTranscript,
+            ToolDefinitions.DetectFillerWords,
+            ToolDefinitions.RemoveFillerRegions,
+            ToolDefinitions.DetectHighlights,
+            ToolDefinitions.InspectFrame,
+            ToolDefinitions.GetActionHistory,
+            ToolDefinitions.AnalyzeSilences,
+            ToolDefinitions.ListModels,
+            ToolDefinitions.GenerateMedia,
+            ToolDefinitions.GetGenerationStatus,
+            ToolDefinitions.GetGenerationLog,
+            ToolDefinitions.SetModelApiKey,
         };
         var set = new System.Collections.Generic.HashSet<string>(names);
         Assert.Equal(names.Length, set.Count);

@@ -1,15 +1,18 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Lumos.Application;
 using Lumos.Domain;
+using SkiaSharp;
 
 namespace Lumos.Infrastructure;
 
-/// Generates clip thumbnails and audio waveform data.
-/// Uses a checkerboard placeholder until FFmpeg bindings are wired.
+/// Generates clip thumbnails using SkiaSharp (replaces manual PNG writer).
 public sealed class ThumbnailGenerator : IThumbnailGenerator
 {
+    private const int ThumbWidth = 160;
+    private const int ThumbHeight = 90;
     private readonly string _cacheDir;
 
     public ThumbnailGenerator(string cacheDir)
@@ -18,217 +21,215 @@ public sealed class ThumbnailGenerator : IThumbnailGenerator
         Directory.CreateDirectory(cacheDir);
     }
 
-    public async Task<string> GenerateThumbnailAsync(Asset asset, TimeSpan position)
+    public async Task<string> GenerateThumbnailAsync(Asset asset, TimeSpan position, CancellationToken ct = default)
     {
         string key    = $"{Path.GetFileNameWithoutExtension(asset.FilePath)}_{(long)position.TotalMilliseconds}";
         string target = Path.Combine(_cacheDir, $"{key}.png");
 
         if (File.Exists(target)) return target;
 
-        if (asset.Type == ClipType.Image || asset.Type == ClipType.Video)
+        if (asset.Type == ClipType.Image)
         {
-            await ExtractFrameAsync(asset, target, asset.Type == ClipType.Video ? position : TimeSpan.Zero);
+            await ExtractImageThumbnailAsync(asset, target, ct);
             return target;
         }
 
-        // Fallback for audio or unsupported
-        await Task.Run(() =>
+        if (asset.Type == ClipType.Video)
         {
-            const int W = 160, H = 90;
-            byte[] data = GenerateCheckerboard(W, H);
-            WritePngRaw(target, W, H, data);
-        });
+            await ExtractVideoThumbnailAsync(asset, target, position, ct);
+            if (File.Exists(target)) return target;
+            // Fall through to checkerboard if ffmpeg fails
+        }
 
+        // Fallback for audio or failed extraction
+        GenerateCheckerboardThumbnail(target);
         return target;
     }
 
-    private async Task ExtractFrameAsync(Asset asset, string outPath, TimeSpan position)
+    public async Task<List<string>> GenerateWaveformAsync(Asset asset, CancellationToken ct = default)
     {
+        if (asset.Type != ClipType.Audio && asset.Type != ClipType.Video)
+            return new List<string>();
+
+        // Attempt to extract audio waveform data via ffmpeg
         try
         {
-            string seconds = position.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var args = asset.Type == ClipType.Video
-                ? $"-y -ss {seconds} -i \"{asset.FilePath}\" -vframes 1 -vf \"scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2\" \"{outPath}\""
-                : $"-y -i \"{asset.FilePath}\" -vframes 1 -vf \"scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2\" \"{outPath}\"";
-            
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "ffmpeg",
-                Arguments = args,
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
             };
+            psi.ArgumentList.Add("-hide_banner");
+            psi.ArgumentList.Add("-i");
+            psi.ArgumentList.Add(asset.FilePath);
+            psi.ArgumentList.Add("-af");
+            psi.ArgumentList.Add("astats=metadata=1:reset=1");
+            psi.ArgumentList.Add("-f");
+            psi.ArgumentList.Add("null");
+            psi.ArgumentList.Add("-");
+
             using var proc = System.Diagnostics.Process.Start(psi);
-            if (proc != null)
+            if (proc == null) return new List<string>();
+
+            string stderr = await proc.StandardError.ReadToEndAsync(ct);
+            await proc.WaitForExitAsync(ct);
+
+            // Parse RMS levels from ffmpeg astats output
+            var samples = new List<string>();
+            var lines = stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
             {
-                await proc.WaitForExitAsync();
+                if (line.Contains("RMS_level:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // ffmpeg astats output: "[Parsed_astats_0 @ ...] RMS_level: -23.5dB"
+                    var parts = line.Split(':', StringSplitOptions.TrimEntries);
+                    if (parts.Length >= 2)
+                    {
+                        // Last part contains value, e.g. "-23.5dB" or "-23.5 dB"
+                        string raw = parts[^1].Replace("dB", "").Trim();
+                        if (float.TryParse(raw, System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out float db))
+                        {
+                            float normalized = Math.Clamp((db + 60) / 60f, 0f, 1f);
+                            samples.Add(normalized.ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
+                        }
+                    }
+                }
             }
-            if (!File.Exists(outPath))
-            {
-                throw new FileNotFoundException("FFmpeg failed to produce output.");
-            }
+
+            return samples.Count > 0 ? samples : new List<string>();
         }
         catch
         {
-            // Silent fallback
-            await Task.Run(() =>
+            return new List<string>();
+        }
+    }
+
+    private static async Task ExtractVideoThumbnailAsync(Asset asset, string outPath, TimeSpan position, CancellationToken ct)
+    {
+        System.Diagnostics.Process? proc = null;
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
             {
-                const int W = 160, H = 90;
-                byte[] data = GenerateCheckerboard(W, H);
-                WritePngRaw(outPath, W, H, data);
+                FileName = "ffmpeg",
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            string seconds = position.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            psi.ArgumentList.Add("-y");
+            psi.ArgumentList.Add("-hide_banner");
+            psi.ArgumentList.Add("-loglevel");
+            psi.ArgumentList.Add("error");
+            psi.ArgumentList.Add("-ss");
+            psi.ArgumentList.Add(seconds);
+            psi.ArgumentList.Add("-i");
+            psi.ArgumentList.Add(asset.FilePath);
+            psi.ArgumentList.Add("-vframes");
+            psi.ArgumentList.Add("1");
+            psi.ArgumentList.Add("-f");
+            psi.ArgumentList.Add("image2pipe");
+            psi.ArgumentList.Add("-pix_fmt");
+            psi.ArgumentList.Add("bgra");
+            psi.ArgumentList.Add("-vf");
+            psi.ArgumentList.Add($"scale={ThumbWidth}:{ThumbHeight}:force_original_aspect_ratio=decrease,pad={ThumbWidth}:{ThumbHeight}:(ow-iw)/2:(oh-ih)/2:black");
+            psi.ArgumentList.Add("pipe:1");
+
+            proc = System.Diagnostics.Process.Start(psi);
+            if (proc == null) return;
+
+            using var _ = ct.Register(() =>
+            {
+                try { if (!proc.HasExited) proc.Kill(); }
+                catch (InvalidOperationException) { }
             });
-        }
-    }
 
-    public async Task<List<string>> GenerateWaveformAsync(Asset asset)
-    {
-        // Return empty waveform segments until PCM extraction is wired
-        return await Task.FromResult(new List<string>());
-    }
+            using var ms = new MemoryStream();
+            await proc.StandardOutput.BaseStream.CopyToAsync(ms, ct);
+            await proc.WaitForExitAsync(ct);
 
-    // Minimal PNG writer (BGRA → RGBA, no compression — dev preview only)
-    private static void WritePngRaw(string path, int width, int height, byte[] bgra)
-    {
-        // Convert BGRA → RGBA
-        byte[] rgba = new byte[bgra.Length];
-        for (int i = 0; i < bgra.Length; i += 4)
-        {
-            rgba[i]     = bgra[i + 2]; // R
-            rgba[i + 1] = bgra[i + 1]; // G
-            rgba[i + 2] = bgra[i];     // B
-            rgba[i + 3] = bgra[i + 3]; // A
-        }
-
-        using var ms = new MemoryStream();
-        WritePngToStream(ms, width, height, rgba);
-        File.WriteAllBytes(path, ms.ToArray());
-    }
-
-    private static void WritePngToStream(Stream s, int w, int h, byte[] rgba)
-    {
-        // PNG signature
-        byte[] sig = { 137, 80, 78, 71, 13, 10, 26, 10 };
-        s.Write(sig, 0, sig.Length);
-
-        // IHDR
-        WriteChunk(s, "IHDR", ihdr =>
-        {
-            WriteInt32BE(ihdr, w);
-            WriteInt32BE(ihdr, h);
-            ihdr.WriteByte(8);  // bit depth
-            ihdr.WriteByte(2);  // color type: RGB (we'll write RGBA as RGB+alpha but use type 2 for simplicity)
-        });
-
-        // IDAT — uncompressed raw using zlib stored blocks
-        WriteChunk(s, "IDAT", idat =>
-        {
-            // Build raw image data (filter byte 0 per row)
-            int rowBytes = w * 3;
-            byte[] raw = new byte[h * (1 + rowBytes)];
-            for (int y = 0; y < h; y++)
+            if (ms.Length > 0 && proc.ExitCode == 0)
             {
-                int dstBase = y * (1 + rowBytes);
-                raw[dstBase] = 0; // filter none
-                for (int x = 0; x < w; x++)
+                ms.Position = 0;
+                // Decode directly to a bitmap from memory
+                using var bitmap = SKBitmap.Decode(ms);
+                if (bitmap != null)
                 {
-                    int src = (y * w + x) * 4;
-                    int dst = dstBase + 1 + x * 3;
-                    raw[dst]     = rgba[src];
-                    raw[dst + 1] = rgba[src + 1];
-                    raw[dst + 2] = rgba[src + 2];
+                    using var img = SKImage.FromBitmap(bitmap);
+                    using var data = img.Encode(SKEncodedImageFormat.Png, 85);
+                    await File.WriteAllBytesAsync(outPath, data.ToArray(), ct);
                 }
             }
-            WriteZlibStored(idat, raw);
-        });
-
-        // IEND
-        WriteChunk(s, "IEND", _ => { });
-    }
-
-    private static void WriteChunk(Stream s, string type, Action<MemoryStream> write)
-    {
-        var data = new MemoryStream();
-        write(data);
-        byte[] payload = data.ToArray();
-        byte[] typeBytes = System.Text.Encoding.ASCII.GetBytes(type);
-
-        WriteInt32BE(s, payload.Length);
-        s.Write(typeBytes, 0, 4);
-        s.Write(payload, 0, payload.Length);
-
-        uint crc = Crc32(typeBytes, payload);
-        WriteInt32BE(s, (int)crc);
-    }
-
-    private static void WriteZlibStored(Stream s, byte[] data)
-    {
-        s.WriteByte(0x78); // CMF
-        s.WriteByte(0x01); // FLG (no dict, level 0)
-
-        int offset = 0;
-        int remaining = data.Length;
-        while (remaining > 0)
-        {
-            int blockSize = Math.Min(remaining, 65535);
-            bool isFinal  = (remaining - blockSize) == 0;
-            s.WriteByte((byte)(isFinal ? 1 : 0));
-            s.WriteByte((byte)(blockSize & 0xFF));
-            s.WriteByte((byte)(blockSize >> 8));
-            s.WriteByte((byte)(~blockSize & 0xFF));
-            s.WriteByte((byte)((~blockSize >> 8) & 0xFF));
-            s.Write(data, offset, blockSize);
-            offset    += blockSize;
-            remaining -= blockSize;
         }
-
-        // Adler-32
-        uint a = 1, b = 0;
-        foreach (byte byt in data) { a = (a + byt) % 65521; b = (b + a) % 65521; }
-        uint adler = (b << 16) | a;
-        WriteInt32BE(s, (int)adler);
+        catch (OperationCanceledException) { }
+        catch
+        {
+            // Silent fallback — checkerboard will be used
+        }
     }
 
-    private static void WriteInt32BE(Stream s, int v)
+    private static async Task ExtractImageThumbnailAsync(Asset asset, string outPath, CancellationToken ct)
     {
-        s.WriteByte((byte)(v >> 24));
-        s.WriteByte((byte)(v >> 16));
-        s.WriteByte((byte)(v >> 8));
-        s.WriteByte((byte)v);
+        try
+        {
+            // Decode image, scale to thumbnail size, pad with black borders
+            using var original = SKBitmap.Decode(asset.FilePath);
+            if (original == null) return;
+
+            using var surface = SKSurface.Create(new SKImageInfo(ThumbWidth, ThumbHeight));
+            var canvas = surface.Canvas;
+            canvas.Clear(SKColors.Black);
+
+            float scale = Math.Min((float)ThumbWidth / original.Width, (float)ThumbHeight / original.Height);
+            float drawW = original.Width * scale;
+            float drawH = original.Height * scale;
+            float drawX = (ThumbWidth - drawW) / 2;
+            float drawY = (ThumbHeight - drawH) / 2;
+
+            using var paint = new SKPaint { FilterQuality = SKFilterQuality.Medium };
+            canvas.DrawBitmap(original, new SKRect(drawX, drawY, drawX + drawW, drawY + drawH), paint);
+
+            using var image = surface.Snapshot();
+            using var data = image.Encode(SKEncodedImageFormat.Png, 85);
+            await File.WriteAllBytesAsync(outPath, data.ToArray(), ct);
+        }
+        catch
+        {
+            // Silent fallback — checkerboard will be used
+        }
     }
 
-    private static uint Crc32(byte[] type, byte[] data)
-    {
-        uint crc = 0xFFFFFFFF;
-        foreach (byte b in type)  crc = Crc32Step(crc, b);
-        foreach (byte b in data)  crc = Crc32Step(crc, b);
-        return crc ^ 0xFFFFFFFF;
-    }
-
-    private static uint Crc32Step(uint crc, byte b)
-    {
-        crc ^= b;
-        for (int i = 0; i < 8; i++)
-            crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320 : crc >> 1;
-        return crc;
-    }
-
-    private static byte[] GenerateCheckerboard(int w, int h)
+    private static void GenerateCheckerboardThumbnail(string path)
     {
         const int cell = 16;
-        byte[] data = new byte[w * h * 4];
-        for (int y = 0; y < h; y++)
-            for (int x = 0; x < w; x++)
-            {
-                int idx = (y * w + x) * 4;
-                bool light = ((x / cell) + (y / cell)) % 2 == 0;
-                byte v = (byte)(light ? 180 : 80);
-                data[idx]     = v;
-                data[idx + 1] = v;
-                data[idx + 2] = v;
-                data[idx + 3] = 255;
-            }
-        return data;
+        using var surface = SKSurface.Create(new SKImageInfo(ThumbWidth, ThumbHeight));
+        var canvas = surface.Canvas;
+        canvas.Clear(new SKColor(80, 80, 80));
+
+        using var lightPaint = new SKPaint { Color = new SKColor(180, 180, 180), IsAntialias = false };
+        for (int y = 0; y < ThumbHeight; y += cell)
+            for (int x = 0; x < ThumbWidth; x += cell)
+                if (((x / cell) + (y / cell)) % 2 == 0)
+                    canvas.DrawRect(x, y, cell, cell, lightPaint);
+
+        // "NO THUMBNAIL" text overlay
+        using var textPaint = new SKPaint
+        {
+            Color = new SKColor(120, 120, 120, 180),
+            TextSize = 12,
+            IsAntialias = true,
+        };
+        float textW = textPaint.MeasureText("NO THUMBNAIL");
+        canvas.DrawText("NO THUMBNAIL", (ThumbWidth - textW) / 2, ThumbHeight / 2 + 4, textPaint);
+
+        using var image = surface.Snapshot();
+        using var data = image.Encode(SKEncodedImageFormat.Png, 85);
+        File.WriteAllBytes(path, data.ToArray());
     }
 }

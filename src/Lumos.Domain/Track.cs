@@ -8,6 +8,13 @@ public sealed class Track
     public bool IsMuted { get; set; }
     public bool IsHidden { get; set; }
     public bool IsSyncLocked { get; set; } = true;
+
+    /// Track-level volume multiplier (0.0 to 1.0). Applied on top of per-clip volume.
+    public double Volume { get; set; } = 1.0;
+
+    /// Track-level stereo pan (-1.0 = full left, 0.0 = center, 1.0 = full right).
+    public double Pan { get; set; } = 0.0;
+
     public List<Clip> Clips { get; set; } = new();
 
     // Display-only, not persisted

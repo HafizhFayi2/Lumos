@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using ModelContextProtocol.Server;
+using Lumos.Application;
 using Lumos.Application.Assets;
 using Lumos.Application.Commands;
 using Lumos.Application.State;
@@ -54,15 +54,15 @@ public sealed class CaptionTools
 
         int fps = tl.Fps > 0 ? tl.Fps : 30;
         var srtPath = Path.ChangeExtension(sourceClip.MediaRef, ".srt");
-        List<SrtEntry> entries;
+        List<Lumos.Application.SrtEntry> entries;
 
         if (File.Exists(srtPath))
         {
-            entries = ParseSrt(await File.ReadAllTextAsync(srtPath, ct));
+            entries = SrtParser.ParseSrt(await File.ReadAllTextAsync(srtPath, ct));
         }
         else
         {
-            entries = BuildPlaceholders(sourceClip.DurationFrames, fps);
+            entries = SrtParser.BuildPlaceholderEntries(sourceClip.DurationFrames, fps);
         }
 
         if (entries.Count == 0)
@@ -82,7 +82,7 @@ public sealed class CaptionTools
                 $"caption_{Guid.NewGuid():N}.srt");
 
             await File.WriteAllTextAsync(tmpSrt,
-                $"1\n{FormatSrtTime(entry.Start)} --> {FormatSrtTime(entry.End)}\n{entry.Text}\n",
+                $"1\n{SrtParser.FormatSrtTime(entry.Start)} --> {SrtParser.FormatSrtTime(entry.End)}\n{entry.Text}\n",
                 ct);
 
             var asset = await _assets.ImportAssetAsync(_store.State.ProjectId, tmpSrt);
@@ -99,56 +99,5 @@ public sealed class CaptionTools
             sourceClipId = clipId,
             srtFound = File.Exists(srtPath),
         });
-    }
-
-    // ── SRT parsing ─────────────────────────────────────────────────────────
-
-    private sealed record SrtEntry(TimeSpan Start, TimeSpan End, string Text);
-
-    private static List<SrtEntry> ParseSrt(string content)
-    {
-        var entries = new List<SrtEntry>();
-        var blocks = Regex.Split(content.Trim(), @"\r?\n\r?\n");
-        foreach (var block in blocks)
-        {
-            var lines = block.Trim().Split('\n');
-            if (lines.Length < 3) continue;
-            var timeParts = lines[1].Split(" --> ");
-            if (timeParts.Length != 2) continue;
-            if (!TryParseSrtTime(timeParts[0].Trim(), out var start)) continue;
-            if (!TryParseSrtTime(timeParts[1].Trim(), out var end)) continue;
-            var text = string.Join(" ", lines[2..]).Trim();
-            entries.Add(new SrtEntry(start, end, text));
-        }
-        return entries;
-    }
-
-    private static bool TryParseSrtTime(string s, out TimeSpan result)
-    {
-        result = default;
-        var m = Regex.Match(s, @"(\d+):(\d+):(\d+)[,.](\d+)");
-        if (!m.Success) return false;
-        result = new TimeSpan(0,
-            int.Parse(m.Groups[1].Value),
-            int.Parse(m.Groups[2].Value),
-            int.Parse(m.Groups[3].Value),
-            int.Parse(m.Groups[4].Value.PadRight(3, '0')[..3]));
-        return true;
-    }
-
-    private static string FormatSrtTime(TimeSpan t) =>
-        $"{t.Hours:D2}:{t.Minutes:D2}:{t.Seconds:D2},{t.Milliseconds:D3}";
-
-    private static List<SrtEntry> BuildPlaceholders(int totalFrames, int fps)
-    {
-        int intervalFrames = fps * 5;
-        var entries = new List<SrtEntry>();
-        for (int f = 0; f + intervalFrames <= totalFrames; f += intervalFrames)
-        {
-            var start = TimeSpan.FromSeconds((double)f / fps);
-            var end   = TimeSpan.FromSeconds((double)(f + intervalFrames - 1) / fps);
-            entries.Add(new SrtEntry(start, end, $"[Caption {entries.Count + 1}]"));
-        }
-        return entries;
     }
 }

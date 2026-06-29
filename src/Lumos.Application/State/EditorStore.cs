@@ -235,6 +235,18 @@ public sealed class EditorStore
         RaiseChanged(StateField.All);
     }
 
+    // ── Preview Quality ─────────────────────────────────────────────────────
+
+    public void UpdatePreviewQuality(PreviewQuality quality)
+    {
+        lock (_lock)
+        {
+            if (_state.PreviewQuality == quality) return;
+            _state = _state with { PreviewQuality = quality };
+        }
+        RaiseChanged(StateField.PreviewQuality);
+    }
+
     // ── Preview Tabs ────────────────────────────────────────────────────────
 
     public void OpenPreviewTab(PreviewTab tab)

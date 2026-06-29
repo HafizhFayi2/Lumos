@@ -21,6 +21,7 @@ public enum StateField
     History    = 1 << 4,
     ToolMode   = 1 << 5,
     DragState  = 1 << 6,
-    PreviewTab = 1 << 7,
-    All        = Timeline | Selection | Viewport | Playback | History | ToolMode | DragState | PreviewTab
+    PreviewTab  = 1 << 7,
+    PreviewQuality = 1 << 8,
+    All        = Timeline | Selection | Viewport | Playback | History | ToolMode | DragState | PreviewTab | PreviewQuality
 }

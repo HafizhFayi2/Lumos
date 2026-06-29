@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ModelContextProtocol.Server;
+using Lumos.Application;
 using Lumos.Application.Commands;
 using Lumos.Application.State;
 using Lumos.Domain;
@@ -21,7 +22,7 @@ public sealed class TimelineTools
     }
 
     [McpServerTool(Name = ToolDefinitions.InspectTimeline)]
-    [Description("Return a JSON snapshot of the current timeline: tracks, clips, durations, fps.")]
+    [Description("Return a detailed JSON snapshot of the current timeline: tracks, clips, durations, fps.")]
     public Task<string> InspectTimelineAsync(CancellationToken ct = default)
     {
         var state = _store.State;
@@ -61,6 +62,35 @@ public sealed class TimelineTools
             }),
         };
         return Task.FromResult(JsonSerializer.Serialize(snapshot, new JsonSerializerOptions
+        {
+            WriteIndented = false,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        }));
+    }
+
+    [McpServerTool(Name = ToolDefinitions.GetTimeline)]
+    [Description("Return a concise summary of the current timeline: fps, resolution, total frames, track count, clip count.")]
+    public Task<string> GetTimelineAsync(CancellationToken ct = default)
+    {
+        var state = _store.State;
+        var tl = state.Timeline.Timeline;
+        if (tl == null)
+            return Task.FromResult(McpToolHelpers.Error("No timeline loaded."));
+
+        int totalClips = tl.Tracks.Sum(t => t.Clips.Count);
+        var summary = new
+        {
+            fps = tl.Fps,
+            width = tl.Width,
+            height = tl.Height,
+            totalFrames = tl.TotalFrames,
+            durationSeconds = tl.Fps > 0 ? (double)tl.TotalFrames / tl.Fps : 0,
+            trackCount = tl.Tracks.Count,
+            clipCount = totalClips,
+            isDirty = state.IsDirty,
+            projectName = state.ProjectName,
+        };
+        return Task.FromResult(JsonSerializer.Serialize(summary, new JsonSerializerOptions
         {
             WriteIndented = false,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -194,6 +224,160 @@ public sealed class TimelineTools
 
         var cmd = new AddEffectAsyncCommand(clipId!, effectType!);
         return await EnqueueAsync(cmd, ct);
+    }
+
+    [McpServerTool(Name = ToolDefinitions.AddClips)]
+    [Description("Add clips to a track by clip ID. Args: clip_ids (array of strings), track_id (string), start_frame (int).")]
+    public async Task<string> AddClipsAsync(JsonElement args, CancellationToken ct = default)
+    {
+        if (!McpToolHelpers.TryGetString(args, "track_id", out var trackId) || string.IsNullOrWhiteSpace(trackId))
+            return McpToolHelpers.Error("track_id (string) is required");
+
+        if (!McpToolHelpers.TryGetInt(args, "start_frame", out var startFrame))
+            return McpToolHelpers.Error("start_frame (int) is required");
+
+        if (startFrame < 0)
+            return McpToolHelpers.Error("start_frame must be >= 0");
+
+        var err = McpToolHelpers.ValidateNonEmptyClipIds(args, out var clipIds);
+        if (err != null) return McpToolHelpers.Error(err);
+
+        var assets = new List<Domain.Asset>();
+        foreach (var clipId in clipIds!)
+        {
+            var clip = FindClip(clipId);
+            if (clip == null)
+                return McpToolHelpers.Error($"No clip found with id '{clipId}'.");
+
+            assets.Add(new Domain.Asset
+            {
+                Id = clip.Id,
+                FilePath = clip.MediaRef,
+                Name = Path.GetFileName(clip.MediaRef),
+                Type = clip.MediaType,
+            });
+        }
+
+        var cmd = new AddClipsAsyncCommand(assets, trackId, startFrame);
+        var result = await _queue.EnqueueAsync(cmd, ct);
+        return result.Succeeded
+            ? McpToolHelpers.Ok(new { addedCount = assets.Count, trackId, startFrame })
+            : McpToolHelpers.Error(result.ErrorMessage ?? "Failed to add clips");
+    }
+
+    [McpServerTool(Name = ToolDefinitions.InsertClips)]
+    [Description("Insert clips at a frame position, pushing existing clips right with ripple. Args: clip_ids (array of strings), track_id (string), insert_frame (int).")]
+    public async Task<string> InsertClipsAsync(JsonElement args, CancellationToken ct = default)
+    {
+        if (!McpToolHelpers.TryGetString(args, "track_id", out var trackId) || string.IsNullOrWhiteSpace(trackId))
+            return McpToolHelpers.Error("track_id (string) is required");
+
+        if (!McpToolHelpers.TryGetInt(args, "insert_frame", out var insertFrame))
+            return McpToolHelpers.Error("insert_frame (int) is required");
+
+        if (insertFrame < 0)
+            return McpToolHelpers.Error("insert_frame must be >= 0");
+
+        var err = McpToolHelpers.ValidateNonEmptyClipIds(args, out var clipIds);
+        if (err != null) return McpToolHelpers.Error(err);
+
+        var tl = _store.State.Timeline.Timeline;
+        var targetTrack = tl.Tracks.FirstOrDefault(t => t.Id == trackId);
+        if (targetTrack == null)
+            return McpToolHelpers.Error($"Track '{trackId}' not found.");
+
+        // Calculate total duration of new clips
+        int pushAmount = 0;
+        var assets = new List<Domain.Asset>();
+        foreach (var clipId in clipIds!)
+        {
+            var clip = FindClip(clipId);
+            if (clip == null)
+                return McpToolHelpers.Error($"No clip found with id '{clipId}'.");
+            pushAmount += clip.DurationFrames;
+            assets.Add(new Domain.Asset
+            {
+                Id = clip.Id,
+                FilePath = clip.MediaRef,
+                Name = Path.GetFileName(clip.MediaRef),
+                Type = clip.MediaType,
+            });
+        }
+
+        // Push existing clips right
+        var shifts = RippleEngine.ComputeRipplePush(targetTrack.Clips, insertFrame, pushAmount);
+        _store.MutateTimeline("Ripple push for insert", t =>
+        {
+            foreach (var shift in shifts)
+            {
+                var c = t.Tracks.SelectMany(tr => tr.Clips).FirstOrDefault(c => c.Id == shift.ClipId);
+                if (c != null) c.StartFrame = shift.NewStartFrame;
+            }
+        });
+
+        // Add the new clips
+        var cmd = new AddClipsAsyncCommand(assets, trackId, insertFrame);
+        var result = await _queue.EnqueueAsync(cmd, ct);
+        return result.Succeeded
+            ? McpToolHelpers.Ok(new { insertedCount = assets.Count, trackId, insertFrame, pushedClips = shifts.Count })
+            : McpToolHelpers.Error(result.ErrorMessage ?? "Failed to insert clips");
+    }
+
+    [McpServerTool(Name = ToolDefinitions.RippleDeleteRanges)]
+    [Description("Remove all clips overlapping a frame range and shift remaining clips left to close gaps. Args: track_id (string), start_frame (int), end_frame (int).")]
+    public Task<string> RippleDeleteRangesAsync(JsonElement args, CancellationToken ct = default)
+    {
+        if (!McpToolHelpers.TryGetString(args, "track_id", out var trackId) || string.IsNullOrWhiteSpace(trackId))
+            return Task.FromResult(McpToolHelpers.Error("track_id (string) is required"));
+
+        if (!McpToolHelpers.TryGetInt(args, "start_frame", out var startFrame))
+            return Task.FromResult(McpToolHelpers.Error("start_frame (int) is required"));
+
+        if (!McpToolHelpers.TryGetInt(args, "end_frame", out var endFrame))
+            return Task.FromResult(McpToolHelpers.Error("end_frame (int) is required"));
+
+        if (startFrame < 0 || endFrame <= startFrame)
+            return Task.FromResult(McpToolHelpers.Error("end_frame must be greater than start_frame, and both must be >= 0"));
+
+        var tl = _store.State.Timeline.Timeline;
+        var targetTrack = tl.Tracks.FirstOrDefault(t => t.Id == trackId);
+        if (targetTrack == null)
+            return Task.FromResult(McpToolHelpers.Error($"Track '{trackId}' not found."));
+
+        // Find clips overlapping the range
+        var overlapping = targetTrack.Clips
+            .Where(c => c.StartFrame < endFrame && c.EndFrame > startFrame)
+            .ToList();
+
+        if (overlapping.Count == 0)
+            return Task.FromResult(McpToolHelpers.Ok(new { removedCount = 0, shiftedCount = 0 }));
+
+        ct.ThrowIfCancellationRequested();
+
+        var removedIds = overlapping.Select(c => c.Id).ToHashSet();
+        var removedRanges = overlapping.Select(c => new FrameRange(c.StartFrame, c.EndFrame)).ToList();
+
+        // Compute ripple shifts for remaining clips on this track
+        var shifts = RippleEngine.ComputeRippleShiftsForRanges(targetTrack.Clips, removedRanges);
+
+        _store.MutateTimeline("Ripple delete ranges", t =>
+        {
+            // Remove overlapping clips
+            foreach (var id in removedIds)
+            {
+                var track = t.Tracks.FirstOrDefault(tr => tr.Id == trackId);
+                track?.Clips.RemoveAll(c => c.Id == id);
+            }
+
+            // Apply shifts to remaining clips
+            foreach (var shift in shifts)
+            {
+                var c = t.Tracks.SelectMany(tr => tr.Clips).FirstOrDefault(c => c.Id == shift.ClipId);
+                if (c != null) c.StartFrame = shift.NewStartFrame;
+            }
+        });
+
+        return Task.FromResult(McpToolHelpers.Ok(new { removedCount = removedIds.Count, shiftedCount = shifts.Count }));
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

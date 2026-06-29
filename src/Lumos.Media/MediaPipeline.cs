@@ -50,6 +50,7 @@ public sealed class MediaPipeline : IDisposable
             targetW,
             targetH,
             _useGpuAcceleration,
+            sourceFps: 30,
             cancellationToken
         );
 

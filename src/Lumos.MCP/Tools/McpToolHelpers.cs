@@ -9,7 +9,7 @@ namespace Lumos.MCP.Tools;
 /// </summary>
 public static class McpToolHelpers
 {
-    private static readonly JsonSerializerOptions DefaultJsonOptions = new()
+    public static readonly JsonSerializerOptions DefaultJsonOptions = new()
     {
         WriteIndented = false,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -39,14 +39,14 @@ public static class McpToolHelpers
     public static bool TryGetInt(JsonElement el, string key, out int value)
     {
         value = 0;
-        if (el.TryGetProperty(key, out var p) && p.TryGetInt32(out value)) return true;
+        if (el.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out value)) return true;
         return false;
     }
 
     public static bool TryGetDouble(JsonElement el, string key, out double value)
     {
         value = 0;
-        if (el.TryGetProperty(key, out var p) && p.TryGetDouble(out value)) return true;
+        if (el.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.Number && p.TryGetDouble(out value)) return true;
         return false;
     }
 
@@ -61,28 +61,28 @@ public static class McpToolHelpers
 
     // ── Validation helpers ───────────────────────────────────────────────────
 
-    public static string ValidateClipId(JsonElement args, out string? clipId)
+    public static string? ValidateClipId(JsonElement args, out string? clipId)
     {
         if (!TryGetString(args, "clip_id", out clipId) || string.IsNullOrWhiteSpace(clipId))
             return "clip_id (string) is required and must not be empty";
         return null;
     }
 
-    public static string ValidateNonEmptyClipIds(JsonElement args, out List<string>? ids)
+    public static string? ValidateNonEmptyClipIds(JsonElement args, out List<string>? ids)
     {
         if (!TryGetStringArray(args, "clip_ids", out ids) || ids is null || ids.Count == 0)
             return "clip_ids (non-empty array of strings) is required";
         return null;
     }
 
-    public static string ValidateFrameRange(int frame, int minFrame, int maxFrame, string paramName = "frame")
+    public static string? ValidateFrameRange(int frame, int minFrame, int maxFrame, string paramName = "frame")
     {
         if (frame < minFrame) return $"{paramName} ({frame}) must be >= {minFrame}";
         if (maxFrame > 0 && frame > maxFrame) return $"{paramName} ({frame}) must be <= {maxFrame}";
         return null;
     }
 
-    public static string ValidateEffectType(string effectType)
+    public static string? ValidateEffectType(string effectType)
     {
         string[] validEffects = [
             "color_grade", "chroma_key", "clarity", "glow", "grain",

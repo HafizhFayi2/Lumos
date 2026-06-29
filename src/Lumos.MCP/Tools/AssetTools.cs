@@ -53,6 +53,104 @@ public sealed class AssetTools
         }));
     }
 
+    [McpServerTool(Name = ToolDefinitions.GetMedia)]
+    [Description("List all media assets in the project with full metadata (id, path, type, duration, resolution, fps).")]
+    public Task<string> GetMediaAsync(CancellationToken ct = default)
+    {
+        var catalog = _assets.Catalog.GetAll();
+        if (catalog.Count == 0)
+            return Task.FromResult(McpToolHelpers.Ok(new { assetCount = 0, assets = new List<object>() }));
+
+        var assets = catalog.Select(a => new
+        {
+            id = a.Id,
+            name = a.Name,
+            path = a.FilePath,
+            type = a.Type.ToString(),
+            durationSeconds = a.Duration,
+            width = a.SourceWidth,
+            height = a.SourceHeight,
+            fps = a.SourceFps,
+            hasAudio = a.HasAudio,
+            folderId = a.FolderId,
+            isGenerated = a.IsGenerated,
+            generationStatus = a.GenerationStatus.ToString(),
+        }).ToList();
+
+        return Task.FromResult(JsonSerializer.Serialize(new
+        {
+            assetCount = assets.Count,
+            assets,
+        }, new JsonSerializerOptions
+        {
+            WriteIndented = false,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        }));
+    }
+
+    [McpServerTool(Name = ToolDefinitions.InspectMedia)]
+    [Description("Return metadata for a specific media asset by ID. Args: asset_id (string).")]
+    public Task<string> InspectMediaAsync(JsonElement args, CancellationToken ct = default)
+    {
+        if (!McpToolHelpers.TryGetString(args, "asset_id", out var assetId) || string.IsNullOrWhiteSpace(assetId))
+            return Task.FromResult(McpToolHelpers.Error("asset_id (string) is required"));
+
+        if (!_assets.Catalog.TryGetById(assetId, out var asset) || asset == null)
+            return Task.FromResult(McpToolHelpers.Error($"Asset '{assetId}' not found in project catalog."));
+
+        // Find which clips reference this asset
+        var tl = _store.State.Timeline.Timeline;
+        List<object>? clipList = tl?.Tracks.SelectMany(t => t.Clips)
+            .Where(c => c.MediaRef == asset.FilePath)
+            .Select<Domain.Clip, object>(c => new { id = c.Id, trackId = tl!.Tracks.FirstOrDefault(tr => tr.Clips.Any(c2 => c2.Id == c.Id))?.Id })
+            .ToList();
+        var clipRefs = clipList ?? new List<object>();
+
+        var result = new
+        {
+            id = asset.Id,
+            name = asset.Name,
+            path = asset.FilePath,
+            type = asset.Type.ToString(),
+            durationSeconds = asset.Duration,
+            width = asset.SourceWidth,
+            height = asset.SourceHeight,
+            fps = asset.SourceFps,
+            hasAudio = asset.HasAudio,
+            folderId = asset.FolderId,
+            isGenerated = asset.IsGenerated,
+            generationPrompt = asset.GenerationPrompt,
+            usedByClips = clipRefs,
+        };
+
+        return Task.FromResult(JsonSerializer.Serialize(result, new JsonSerializerOptions
+        {
+            WriteIndented = false,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        }));
+    }
+
+    [McpServerTool(Name = ToolDefinitions.DeleteMedia)]
+    [Description("Remove a media asset from the project. Args: asset_id (string).")]
+    public Task<string> DeleteMediaAsync(JsonElement args, CancellationToken ct = default)
+    {
+        if (!McpToolHelpers.TryGetString(args, "asset_id", out var assetId) || string.IsNullOrWhiteSpace(assetId))
+            return Task.FromResult(McpToolHelpers.Error("asset_id (string) is required"));
+
+        if (!_assets.Catalog.TryGetById(assetId, out var asset) || asset == null)
+            return Task.FromResult(McpToolHelpers.Error($"Asset '{assetId}' not found."));
+
+        // Check if any clips reference this asset
+        var tl = _store.State.Timeline.Timeline;
+        var inUse = tl?.Tracks.SelectMany(t => t.Clips).Any(c => c.MediaRef == asset.FilePath) ?? false;
+
+        if (inUse)
+            return Task.FromResult(McpToolHelpers.Error($"Asset '{asset.Name}' is in use by clips on the timeline. Remove clips first."));
+
+        _assets.RemoveAsset(_store.State.ProjectId, assetId);
+        return Task.FromResult(McpToolHelpers.Ok(new { removed = assetId, name = asset.Name }));
+    }
+
     [McpServerTool(Name = ToolDefinitions.ImportMedia)]
     [Description("Add a media file to the timeline as a new clip. Args: path (string, absolute file path), start_frame (int, default 0), track_index (int, optional — omit to create a new track).")]
     public async Task<string> ImportMediaAsync(JsonElement args, CancellationToken ct = default)
@@ -107,6 +205,4 @@ public sealed class AssetTools
             ? McpToolHelpers.Ok(new { path, startFrame, trackId = targetTrack.Id, mediaType = mediaType.ToString() })
             : McpToolHelpers.Error(result.ErrorMessage ?? "Failed to add clip to timeline");
     }
-
-
 }

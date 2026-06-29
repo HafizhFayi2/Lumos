@@ -12,6 +12,7 @@ namespace Lumos.Application;
 ///   project.lumos/
 ///     project.json   — timeline, project metadata
 ///     media.json     — media manifest (asset paths, types, durations)
+///     folders.json   — media folder hierarchy
 ///     media/         — copied media files
 /// </summary>
 public sealed class ProjectSerializer
@@ -38,6 +39,11 @@ public sealed class ProjectSerializer
         string mediaPath = Path.Combine(projectDir, ProjectDefaults.ManifestFilename);
         string mediaJson = JsonSerializer.Serialize(data.Manifest, JsonOpts);
         File.WriteAllText(mediaPath, mediaJson);
+
+        // Write folders.json
+        string foldersPath = Path.Combine(projectDir, ProjectDefaults.FoldersFilename);
+        string foldersJson = JsonSerializer.Serialize(data.Folders, JsonOpts);
+        File.WriteAllText(foldersPath, foldersJson);
     }
 
     // ── Load ────────────────────────────────────────────────────────────────
@@ -46,6 +52,7 @@ public sealed class ProjectSerializer
     {
         string projectPath = Path.Combine(projectDir, ProjectDefaults.TimelineFilename);
         string mediaPath = Path.Combine(projectDir, ProjectDefaults.ManifestFilename);
+        string foldersPath = Path.Combine(projectDir, ProjectDefaults.FoldersFilename);
 
         if (!File.Exists(projectPath))
             return null;
@@ -81,12 +88,31 @@ public sealed class ProjectSerializer
             manifest = new MediaManifest();
         }
 
-        return new ProjectData(project, manifest);
+        FolderManifest folders;
+        if (File.Exists(foldersPath))
+        {
+            try
+            {
+                string foldersJson = File.ReadAllText(foldersPath);
+                folders = JsonSerializer.Deserialize<FolderManifest>(foldersJson, JsonOpts)
+                          ?? new FolderManifest();
+            }
+            catch
+            {
+                folders = new FolderManifest();
+            }
+        }
+        else
+        {
+            folders = new FolderManifest();
+        }
+
+        return new ProjectData(project, manifest, folders);
     }
 
     // ── Data types ──────────────────────────────────────────────────────────
 
-    public sealed record ProjectData(Project Project, MediaManifest Manifest);
+    public sealed record ProjectData(Project Project, MediaManifest Manifest, FolderManifest Folders);
 }
 
 /// <summary>
@@ -110,4 +136,23 @@ public sealed class MediaEntry
     public double? SourceFps { get; set; }
     public DateTime ImportedAt { get; set; } = DateTime.UtcNow;
     public bool IsPresent { get; set; } = true;
+    public string? FolderId { get; set; }
+}
+
+/// <summary>
+/// Folder manifest tracking the media folder hierarchy for a project.
+/// </summary>
+public sealed class FolderManifest
+{
+    public List<FolderEntry> Folders { get; set; } = new();
+}
+
+/// <summary>
+/// A single folder entry in the folder hierarchy.
+/// </summary>
+public sealed record FolderEntry
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? ParentId { get; set; }
 }

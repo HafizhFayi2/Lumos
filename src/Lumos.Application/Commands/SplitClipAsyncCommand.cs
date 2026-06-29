@@ -30,6 +30,7 @@ public sealed class SplitClipAsyncCommand : TimelineCommand
         }
 
         if (targetTrack == null || targetClip == null) return;
+        if (targetClip.DurationFrames <= 1) return;
         if (_splitFrame <= targetClip.StartFrame || _splitFrame >= targetClip.EndFrame) return;
 
         var clipIdsToSplit = new List<string> { _clipId };
@@ -69,6 +70,7 @@ public sealed class SplitClipAsyncCommand : TimelineCommand
         }
 
         if (track == null || clip == null) return null;
+        if (clip.DurationFrames <= 1) return null;
         if (atFrame <= clip.StartFrame || atFrame >= clip.EndFrame) return null;
 
         int splitOffset = atFrame - clip.StartFrame;

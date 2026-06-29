@@ -8,13 +8,14 @@ using Lumos.Domain;
 namespace Lumos.Media;
 
 /// Primary playback engine. Drives the playhead clock via a background loop,
-/// raises PositionChanged on every frame boundary, and delegates frame
-/// resolution to CompositionBuilder.
+/// raises PositionChanged on every frame boundary, and resolves frames
+/// via CompositionBuilder for proper timeline compositing.
 public sealed class PlaybackEngine : IPlaybackEngine
 {
     private readonly CompositionBuilder _composer = new();
     private readonly PlaybackClock _clock = new();
     private readonly IFrameProvider _frameProvider;
+    private readonly IFrameCompositor? _frameCompositor;
 
     private Timeline? _timeline;
     private CancellationTokenSource? _cts;
@@ -36,9 +37,10 @@ public sealed class PlaybackEngine : IPlaybackEngine
     public event EventHandler<TimeSpan>? PositionChanged;
     public event EventHandler<(int frame, byte[] data)>? FrameReady;
 
-    public PlaybackEngine(IFrameProvider frameProvider)
+    public PlaybackEngine(IFrameProvider frameProvider, IFrameCompositor? frameCompositor = null)
     {
         _frameProvider = frameProvider;
+        _frameCompositor = frameCompositor;
     }
 
     public void LoadTimeline(Timeline timeline)
@@ -121,7 +123,6 @@ public sealed class PlaybackEngine : IPlaybackEngine
 
             if (_timeline is not null && frame >= _timeline.TotalFrames)
             {
-                // Reached end — stop and park at last frame
                 _currentPosition = Duration;
                 RaisePositionChanged(_currentPosition);
                 _isPlaying = false;
@@ -131,7 +132,22 @@ public sealed class PlaybackEngine : IPlaybackEngine
 
             RaisePositionChanged(_currentPosition);
 
-            var pixelData = await _frameProvider.GetFrameAsync("", frame, 1920, 1080);
+            // Resolve the frame via CompositionBuilder (handles all visible clips)
+            // instead of the old empty-string asset path which always failed.
+            var compFrame = _composer.Build(frame);
+            byte[]? pixelData = null;
+
+            if (_frameCompositor != null && compFrame.Visual.Count > 0)
+            {
+                pixelData = await _frameCompositor.CompositeAsync(compFrame);
+            }
+            else if (compFrame.Visual.Count > 0)
+            {
+                int w = _timeline?.Width > 0 ? _timeline.Width : 1920;
+                int h = _timeline?.Height > 0 ? _timeline.Height : 1080;
+                pixelData = await MediaCompositor.CompositeSlotsAsync(compFrame.Visual, _frameProvider, w, h);
+            }
+
             if (pixelData != null)
             {
                 FrameReady?.Invoke(this, (frame, pixelData));

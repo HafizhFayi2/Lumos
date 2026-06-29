@@ -90,7 +90,8 @@ public class TimelineInputController
 
         if (trackIndex >= 0 && trackIndex < _timeline.Tracks.Count)
         {
-            _editorState.ActiveTrackId = Guid.Parse(_timeline.Tracks[trackIndex].Id);
+            if (Guid.TryParse(_timeline.Tracks[trackIndex].Id, out var trackGuid))
+                _editorState.ActiveTrackId = trackGuid;
         }
 
         if (ToolMode == ToolMode.Razor)
@@ -160,7 +161,14 @@ public class TimelineInputController
                 }
             }
 
-            _editorState.SelectedClipIds = selectedIds.Select(Guid.Parse).ToList();
+            _editorState.SelectedClipIds = selectedIds
+                .Select(id => { 
+                    if (!Guid.TryParse(id, out var g) && id != null) 
+                        System.Diagnostics.Debug.WriteLine($"[Timeline] Non-GUID clip ID: {id}");
+                    return g; 
+                })
+                .Where(g => g != Guid.Empty)
+                .ToList();
 
             double localX = point.X - rect.X;
 

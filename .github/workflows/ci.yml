@@ -2,34 +2,56 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
 jobs:
   build-test:
     name: Build & Test
-    # Lumos targets macOS 26 (Tahoe), arm64 only. Requires a macOS 26 runner image.
-    runs-on: macos-26
-    timeout-minutes: 40
+    runs-on: windows-latest
+    timeout-minutes: 20
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show toolchain
-        run: swift --version
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-      - name: Cache SwiftPM
+      - name: Show .NET info
+        run: dotnet --info
+
+      - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
-          path: .build
-          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
-          restore-keys: spm-${{ runner.os }}-
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
-      - name: Build
-        run: swift build
+      - name: Restore dependencies
+        run: dotnet restore src/Lumos.sln
 
-      - name: Test
-        run: swift test
+      - name: Build solution
+        run: dotnet build src/Lumos.sln --no-restore --configuration Debug
+
+      - name: Run tests
+        run: dotnet test src/Lumos.Tests --no-build --configuration Debug --verbosity normal --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: src/Lumos.Tests/TestResults/
+          retention-days: 7

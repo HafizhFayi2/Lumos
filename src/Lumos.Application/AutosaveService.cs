@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using Lumos.Application.Assets;
 using Lumos.Application.State;
 
 namespace Lumos.Application;
@@ -11,6 +12,8 @@ namespace Lumos.Application;
 public sealed class AutosaveService : IDisposable
 {
     private readonly EditorStore _store;
+    private readonly MediaFolderStore? _folderStore;
+    private readonly AssetManager? _assetManager;
     private readonly ProjectSerializer _serializer = new();
     private Timer? _timer;
     private string? _projectDir;
@@ -18,9 +21,11 @@ public sealed class AutosaveService : IDisposable
 
     public event Action? Saved;
 
-    public AutosaveService(EditorStore store)
+    public AutosaveService(EditorStore store, MediaFolderStore? folderStore = null, AssetManager? assetManager = null)
     {
         _store = store;
+        _folderStore = folderStore;
+        _assetManager = assetManager;
     }
 
     /// <summary>
@@ -63,7 +68,7 @@ public sealed class AutosaveService : IDisposable
         try
         {
             var state = _store.State;
-            var data = ProjectDataBuilder.BuildFromState(state);
+            var data = ProjectDataBuilder.BuildFromState(state, _folderStore, _assetManager);
             _serializer.Save(_projectDir!, data);
             _store.MarkClean();
             Saved?.Invoke();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -65,6 +66,10 @@ public sealed class TimelineTrackControl : Control
     private static readonly SolidColorBrush AIBadgeFg = new(Color.Parse("#A855F7"));
     private static readonly SolidColorBrush LabelShadow = new(Color.Parse("#CC000000"));
     private static readonly SolidColorBrush MutedOverlay = new(Color.Parse("#60000000"));
+    private static readonly SolidColorBrush LinkBadgeBg = new(Color.Parse("#1E3A5F"));
+    private static readonly SolidColorBrush LinkBadgeFg = new(Color.Parse("#60A5FA"));
+    private static readonly SolidColorBrush TrimGlow = new(Color.Parse("#3060A5FA"));
+    private static readonly SolidColorBrush LinkedClipOutline = new(Color.Parse("#6060A5FA"));
 
     private const double TrimHandleWidth = 6.0;
     private const double FadeDrawWidth = 24.0;
@@ -80,6 +85,7 @@ public sealed class TimelineTrackControl : Control
 
     private List<ClipRenderInfo> _clipInfos = new();
     private ClipRenderInfo? _hoveredClip;
+    private bool _isTrimHover;
 
     static TimelineTrackControl()
     {
@@ -175,6 +181,12 @@ public sealed class TimelineTrackControl : Control
             // ── Clip label ────────────────────────────────────────────
             DrawClipLabel(ctx, info, clipX, clipY, clipW, clipH);
 
+            // ── Linked clip indicator ─────────────────────────────────
+            if (!string.IsNullOrEmpty(clip.LinkGroupId))
+            {
+                DrawLinkBadge(ctx, clipX, clipY, clipW, clipH, isSelected);
+            }
+
             // ── AI badge ──────────────────────────────────────────────
             if (info.IsAI)
             {
@@ -182,7 +194,7 @@ public sealed class TimelineTrackControl : Control
             }
 
             // ── Trim handles ──────────────────────────────────────────
-            if (clipW > 12)
+            if (clipW > 20)
             {
                 DrawTrimHandle(ctx, clipX, clipY, TrimHandleWidth, clipH, true);
                 DrawTrimHandle(ctx, clipX + clipW - TrimHandleWidth, clipY, TrimHandleWidth, clipH, false);
@@ -193,6 +205,24 @@ public sealed class TimelineTrackControl : Control
             {
                 var hoverPen = new Pen(new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)), 1.0);
                 ctx.DrawRectangle(null, hoverPen, new RoundedRect(clipRect, 3));
+
+                // Trim zone hover glow
+                if (_isTrimHover && clipW > 20)
+                {
+                    // Subtle blue glow near the trim handle
+                    double glowW = TrimHandleWidth + 8;
+                    ctx.DrawRectangle(TrimGlow, null,
+                        new RoundedRect(new Rect(clipX, clipY, glowW, clipH), 2));
+                    ctx.DrawRectangle(TrimGlow, null,
+                        new RoundedRect(new Rect(clipX + clipW - glowW, clipY, glowW, clipH), 2));
+                }
+            }
+
+            // ── Linked clip selection outline ─────────────────────────
+            if (isSelected && !string.IsNullOrEmpty(clip.LinkGroupId))
+            {
+                var linkPen = new Pen(LinkedClipOutline, 2.0, new DashStyle(new double[] { 4, 2 }, 0));
+                ctx.DrawRectangle(null, linkPen, new RoundedRect(clipRect, 3));
             }
         }
     }
@@ -376,20 +406,67 @@ public sealed class TimelineTrackControl : Control
         ctx.DrawText(ft, new Point(badgeRect.X + 5, badgeRect.Y + 2));
     }
 
+    // ── Linked clip badge ────────────────────────────────────────────────
+
+    private void DrawLinkBadge(DrawingContext ctx, double clipX, double clipY,
+        double clipW, double clipH, bool isSelected)
+    {
+        // Draw a small link icon at the top-right of the clip
+        double badgeSize = 14;
+        double badgeX = clipX + clipW - badgeSize - 4;
+        double badgeY = clipY + 2;
+
+        // Skip if overlapping with trim handle area
+        if (badgeX < clipX + TrimHandleWidth + 2)
+            badgeX = clipX + 4; // fall back to top-left
+
+        var badgeRect = new Rect(badgeX, badgeY, badgeSize, badgeSize);
+        ctx.DrawRectangle(LinkBadgeBg, isSelected
+            ? new Pen(LinkBadgeFg, 1.0)
+            : new Pen(LinkBadgeFg, 0.5),
+            new RoundedRect(badgeRect, 3));
+
+        var ft = new FormattedText(
+            "🔗",
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Segoe UI", FontStyle.Normal, FontWeight.Bold),
+            8,
+            LinkBadgeFg);
+        ctx.DrawText(ft, new Point(badgeX + 3, badgeY + 3));
+    }
+
     // ── Trim handles ──────────────────────────────────────────────────────
 
     private void DrawTrimHandle(DrawingContext ctx, double x, double y, double w, double h, bool isLeft)
     {
         double centerY = y + h / 2;
-        double handleH = Math.Min(h * 0.4, 16);
+        double handleH = Math.Min(h * 0.5, 20);
+        double handleY = centerY - handleH / 2;
 
-        ctx.DrawRectangle(TrimHandleBrush, null,
-            new RoundedRect(new Rect(x + 1, centerY - handleH / 2, w - 2, handleH), 1));
+        // Handle background with slightly rounded corners
+        var handleRect = new Rect(x, handleY, w, handleH);
+        ctx.DrawRectangle(TrimHandleBrush, null, new RoundedRect(handleRect, 1.5));
 
-        // Grip lines
-        var linePen = new Pen(new SolidColorBrush(Color.FromArgb(120, 0, 0, 0)), 1.0);
-        double gripX = isLeft ? x + w / 2 : x + w / 2;
-        ctx.DrawLine(linePen, new Point(gripX, centerY - 4), new Point(gripX, centerY + 4));
+        // Grip lines (vertical bars)
+        var linePen = new Pen(new SolidColorBrush(Color.FromArgb(100, 0, 0, 0)), 1.0);
+        double gripCenterX = x + w / 2;
+        const double gripSpacing = 2.5;
+
+        if (isLeft)
+        {
+            ctx.DrawLine(linePen, new Point(gripCenterX - gripSpacing, centerY - 3),
+                new Point(gripCenterX - gripSpacing, centerY + 3));
+            ctx.DrawLine(linePen, new Point(gripCenterX, centerY - 3),
+                new Point(gripCenterX, centerY + 3));
+        }
+        else
+        {
+            ctx.DrawLine(linePen, new Point(gripCenterX, centerY - 3),
+                new Point(gripCenterX, centerY + 3));
+            ctx.DrawLine(linePen, new Point(gripCenterX + gripSpacing, centerY - 3),
+                new Point(gripCenterX + gripSpacing, centerY + 3));
+        }
     }
 
     // ── Hit testing ───────────────────────────────────────────────────────
@@ -399,17 +476,20 @@ public sealed class TimelineTrackControl : Control
         base.OnPointerMoved(e);
         var pos = e.GetPosition(this);
         var prev = _hoveredClip;
+        bool prevTrimHover = _isTrimHover;
         _hoveredClip = HitTestClip(pos.X, pos.Y);
+        _isTrimHover = false;
 
         if (_hoveredClip != null)
         {
             double leftEdge = _hoveredClip.Left;
             double rightEdge = _hoveredClip.Left + _hoveredClip.Width;
 
-            if (Math.Abs(pos.X - leftEdge) < TrimHandleWidth + 4 ||
-                Math.Abs(pos.X - rightEdge) < TrimHandleWidth + 4)
+            if (Math.Abs(pos.X - leftEdge) < TrimHandleWidth + 6 ||
+                Math.Abs(pos.X - rightEdge) < TrimHandleWidth + 6)
             {
                 Cursor = new Cursor(StandardCursorType.SizeWestEast);
+                _isTrimHover = true;
             }
             else
             {
@@ -421,7 +501,7 @@ public sealed class TimelineTrackControl : Control
             Cursor = new Cursor(StandardCursorType.Arrow);
         }
 
-        if (_hoveredClip != prev)
+        if (_hoveredClip != prev || _isTrimHover != prevTrimHover)
             InvalidateVisual();
     }
 
@@ -482,6 +562,7 @@ public sealed class TimelineTrackControl : Control
                 IsAI = clip.MediaType == ClipType.Text ||
                        (clip.MediaRef?.Contains("Generated", StringComparison.OrdinalIgnoreCase) == true) ||
                        (clip.MediaRef?.Contains("AI", StringComparison.OrdinalIgnoreCase) == true),
+                HasLink = !string.IsNullOrEmpty(clip.LinkGroupId),
                 DisplayName = System.IO.Path.GetFileNameWithoutExtension(clip.MediaRef ?? "Clip"),
                 DurationText = FormatDuration(clip.DurationFrames, track.Type == ClipType.Audio ? 44100 : 30),
             });
@@ -527,6 +608,7 @@ public sealed class TimelineTrackControl : Control
         public double Left { get; init; }
         public double Width { get; init; }
         public bool IsAI { get; init; }
+        public bool HasLink { get; init; }
         public required string DisplayName { get; init; }
         public required string DurationText { get; init; }
     }

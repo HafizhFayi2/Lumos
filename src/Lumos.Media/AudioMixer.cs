@@ -16,6 +16,7 @@ public class AudioMixer
         await Task.Run(() =>
         {
             var audioClips = timeline.Tracks
+                .Where(t => !t.IsMuted)
                 .SelectMany(t => t.Clips)
                 .Where(c => c.MediaType == ClipType.Audio || c.MediaType == ClipType.Video)
                 .OrderBy(c => c.StartFrame)
@@ -62,12 +63,35 @@ public class AudioMixer
                             new[] { offsetProvider }, 2);
                     }
 
-                    // Apply volume effect if any
-                    double volume = 1.0;
-                    // For now simple volume:
-                    var volProvider = new VolumeSampleProvider(finalProvider) { Volume = (float)volume };
-                    
-                    providers.Add(volProvider);
+                    // Apply per-frame volume automation from clip keyframes and track volume
+                    var track = timeline.Tracks.FirstOrDefault(t => t.Id == clip.Id);
+                    double trackVolume = 1.0;
+                    double trackPan = 0.0;
+
+                    // Find the track containing this clip to get track-level volume/pan
+                    foreach (var t in timeline.Tracks)
+                    {
+                        if (t.Clips.Any(c => c.Id == clip.Id))
+                        {
+                            trackVolume = t.Volume;
+                            trackPan = t.Pan;
+                            break;
+                        }
+                    }
+
+                    var volProvider = new VolumeKeyframeProvider(finalProvider, clip, timeline.Fps, trackVolume);
+
+                    // Apply stereo pan if non-center
+                    ISampleProvider panProvider = volProvider;
+                    if (Math.Abs(trackPan) > 0.001)
+                    {
+                        panProvider = new PanningSampleProvider(volProvider)
+                        {
+                            Pan = (float)Math.Clamp(trackPan, -1.0, 1.0)
+                        };
+                    }
+
+                    providers.Add(panProvider);
                 }
                 catch
                 {

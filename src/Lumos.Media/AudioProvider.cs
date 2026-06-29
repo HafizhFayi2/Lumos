@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Lumos.Media;
@@ -8,23 +9,30 @@ public interface IAudioProvider
     Task<float[]?> GetAudioSamplesAsync(string assetPath, double startTime, double duration);
 }
 
-public class AudioProvider : IAudioProvider
+/// Decodes audio samples from media files via FFmpeg.
+/// Replaces the previous sine-wave stub with real PCM decoding
+/// so silence/transcript analysis and audio waveform preview work correctly.
+public class AudioProvider : IAudioProvider, IDisposable
 {
-    public async Task<float[]?> GetAudioSamplesAsync(string assetPath, double startTime, double duration)
+    private readonly DecodePipeline _pipeline;
+    private readonly bool _ownsPipeline;
+
+    public AudioProvider(DecodePipeline? pipeline = null)
     {
-        return await Task.Run(() =>
-        {
-            int sampleCount = (int)(44100 * duration);
-            if (sampleCount <= 0) return null;
-            
-            float[] samples = new float[sampleCount];
-            double frequency = 220.0;
-            for (int i = 0; i < sampleCount; i++)
-            {
-                double t = (double)i / 44100.0;
-                samples[i] = (float)(0.2 * Math.Sin(2.0 * Math.PI * frequency * t));
-            }
-            return samples;
-        });
+        _ownsPipeline = pipeline == null;
+        _pipeline = pipeline ?? new DecodePipeline();
+    }
+
+    public async Task<float[]?> GetAudioSamplesAsync(
+        string assetPath, double startTime, double duration)
+    {
+        return await _pipeline.DecodeAudioSamplesAsync(
+            assetPath, startTime, duration, CancellationToken.None);
+    }
+
+    public void Dispose()
+    {
+        if (_ownsPipeline)
+            _pipeline.Dispose();
     }
 }

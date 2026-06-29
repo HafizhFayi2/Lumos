@@ -39,6 +39,18 @@ public static class Layout
     public const double PreviewMinHeight = 320;
 }
 
+/// Preview render quality modes.
+/// Controls the resolution at which frames are composited and displayed.
+public enum PreviewQuality
+{
+    /// Full resolution (1920x1080 or native)
+    Full,
+    /// Half resolution (960x540)
+    Half,
+    /// Quarter resolution (480x270) — fast for scrubbing
+    Quarter
+}
+
 public static class Defaults
 {
     public const double PixelsPerFrame = 4.0;
@@ -100,5 +112,6 @@ public static class ProjectDefaults
     public const string ManifestFilename = "media.json";
     public const string GenerationLogFilename = "generation-log.json";
     public const string ThumbnailFilename = "thumbnail.jpg";
+    public const string FoldersFilename = "folders.json";
     public const string MediaDirectoryName = "media";
 }

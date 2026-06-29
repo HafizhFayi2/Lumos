@@ -7,6 +7,7 @@ public sealed class Timeline
     public int Height { get; set; } = 1080;
     public bool SettingsConfigured { get; set; }
     public List<Track> Tracks { get; set; } = new();
+    public List<Marker> Markers { get; set; } = new();
 
     public int TotalFrames => Tracks.Count == 0 ? 0 : Tracks.Max(t => t.EndFrame);
 

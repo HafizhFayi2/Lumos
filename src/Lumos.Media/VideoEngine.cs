@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
     private readonly IFrameCompositor? _frameCompositor;
     private readonly CompositionBuilder _composer = new();
     private readonly TimelineAudioPlayer _audioPlayer = new();
+    private PreviewQuality _previewQuality = PreviewQuality.Half;
 
     private CancellationTokenSource? _playbackCts;
     private readonly object _playbackLock = new();
@@ -40,6 +42,8 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
         {
             if (e.ChangedField.HasFlag(StateField.Timeline))
                 Rebuild();
+            if (e.ChangedField.HasFlag(StateField.PreviewQuality))
+                _previewQuality = _store.State.PreviewQuality;
         };
     }
 
@@ -87,19 +91,45 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
             Play();
     }
 
+    private (int width, int height) GetRenderSize()
+    {
+        var timeline = _store.State.Timeline.Timeline;
+        int baseW = timeline?.Width > 0 ? timeline.Width : 1920;
+        int baseH = timeline?.Height > 0 ? timeline.Height : 1080;
+        return _previewQuality switch
+        {
+            PreviewQuality.Full => (baseW, baseH),
+            PreviewQuality.Half => (Math.Max(1, baseW / 2), Math.Max(1, baseH / 2)),
+            PreviewQuality.Quarter => (Math.Max(1, baseW / 4), Math.Max(1, baseH / 4)),
+            _ => (Math.Max(1, baseW / 2), Math.Max(1, baseH / 2))
+        };
+    }
+
+    private int SafeTotalFrames() => Math.Max(0, _store.State.Timeline?.Timeline?.TotalFrames ?? 0);
+
     public void Seek(int frame, bool isScrub = false)
     {
-        var totalFrames = _store.State.TotalFrames;
+        int totalFrames = SafeTotalFrames();
+        frame = Math.Clamp(frame, 0, Math.Max(0, totalFrames - 1));
+        
         _store.UpdatePlayback(p => p.SetPlayhead(frame, totalFrames));
         if (_store.State.Playback.IsPlaying)
             _audioPlayer.Play(_store.State.Timeline.Timeline, frame);
         
+        var (w, h) = GetRenderSize();
         _seekController.EnqueueSeek(frame, async f =>
         {
-            var pixelData = await GetCompositedFrameAsync(f, 1920, 1080);
-            if (pixelData != null)
+            try
             {
-                FrameComposited?.Invoke(f, pixelData);
+                var pixelData = await GetCompositedFrameAsync(f, w, h);
+                if (pixelData != null)
+                {
+                    FrameComposited?.Invoke(f, pixelData);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[VideoEngine] Seek composite failed: {ex.Message}");
             }
         });
     }
@@ -122,49 +152,7 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
             return await _frameCompositor.CompositeAsync(compFrame);
         }
 
-        byte[] dest = new byte[width * height * 4];
-
-        // Composite in painter's order (CompositionBuilder.Build visual list is bottom-to-top)
-        foreach (var slot in compFrame.Visual)
-        {
-            var src = await _frameProvider.GetFrameAsync(slot.AssetPath, slot.SourceFrame, width, height);
-            if (src == null) continue;
-
-            double opacity = slot.Opacity;
-            if (opacity <= 0) continue;
-
-            if (opacity >= 1.0)
-            {
-                // Direct copy for opaque slots (faster)
-                Buffer.BlockCopy(src, 0, dest, 0, src.Length);
-            }
-            else
-            {
-                // Software alpha blend
-                for (int i = 0; i < dest.Length; i += 4)
-                {
-                    byte sb = src[i];
-                    byte sg = src[i + 1];
-                    byte sr = src[i + 2];
-                    byte sa = src[i + 3];
-
-                    double a = (sa / 255.0) * opacity;
-                    if (a <= 0) continue;
-
-                    byte db = dest[i];
-                    byte dg = dest[i + 1];
-                    byte dr = dest[i + 2];
-                    byte da = dest[i + 3];
-
-                    dest[i]     = (byte)(sb * a + db * (1.0 - a));
-                    dest[i + 1] = (byte)(sg * a + dg * (1.0 - a));
-                    dest[i + 2] = (byte)(sr * a + dr * (1.0 - a));
-                    dest[i + 3] = (byte)(Math.Max(da, sa * opacity));
-                }
-            }
-        }
-
-        return dest;
+        return await MediaCompositor.CompositeSlotsAsync(compFrame.Visual, _frameProvider, width, height);
     }
 
     public async Task<(float[] y, float[] r, float[] g, float[] b)?> GetHistogramYRGBAsync(int? frameNumber = null, int count = 256)
@@ -259,35 +247,52 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
 
     private async Task PlaybackLoopAsync(CancellationToken ct)
     {
-        int fps = _store.State.Fps > 0 ? _store.State.Fps : 30;
+        int fps = Math.Max(1, _store.State.Fps > 0 ? _store.State.Fps : 30);
         int frameDurationMs = 1000 / fps;
+        var sw = new Stopwatch();
 
-        Console.WriteLine($"[VideoEngine] Playback loop started. FPS: {fps}");
+        Debug.WriteLine($"[VideoEngine] Playback loop started. FPS: {fps}");
 
         while (!ct.IsCancellationRequested)
         {
-            var startTime = DateTime.UtcNow;
+            sw.Restart();
 
-            int currentFrame = _store.State.PlayheadFrame;
-            int totalFrames = _store.State.TotalFrames;
-
-            if (currentFrame >= totalFrames)
+            int totalFrames = SafeTotalFrames();
+            if (totalFrames <= 0)
             {
-                Console.WriteLine($"[VideoEngine] Reached end (Current: {currentFrame}, Total: {totalFrames}). Pausing.");
-                // Reached the end
-                _store.UpdatePlayback(p => p.SetPlayhead(0, totalFrames));
+                _store.UpdatePlayback(p => p.SetPlayhead(0, 0));
+                Pause();
+                break;
+            }
+
+            int currentFrame = Math.Max(0, _store.State.PlayheadFrame);
+
+            if (currentFrame >= totalFrames - 1)
+            {
+                _store.UpdatePlayback(p => p.SetPlayhead(totalFrames - 1, totalFrames));
                 Pause();
                 break;
             }
 
             int nextFrame = currentFrame + 1;
             _store.UpdatePlayback(p => p.SetPlayhead(nextFrame, totalFrames));
-            _audioPlayer.Sync(_store.State.Timeline.Timeline, nextFrame);
 
+            // Audio sync (non-blocking on failure)
             try
             {
-                // Render at preview resolution to stay responsive
-                var pixelData = await GetCompositedFrameAsync(nextFrame, 960, 540);
+                var tl = _store.State.Timeline.Timeline;
+                _audioPlayer.Sync(tl, nextFrame);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[VideoEngine] Audio sync failed at frame {nextFrame}: {ex.Message}");
+            }
+
+            // Render frame
+            try
+            {
+                var (w, h) = GetRenderSize();
+                var pixelData = await GetCompositedFrameAsync(nextFrame, w, h);
                 if (pixelData != null)
                 {
                     FrameComposited?.Invoke(nextFrame, pixelData);
@@ -295,11 +300,12 @@ public sealed class VideoEngine : IFrameProvider, IDisposable
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[VideoEngine] GetCompositedFrameAsync crashed: {ex}");
+                Debug.WriteLine($"[VideoEngine] Frame composite failed at frame {nextFrame}: {ex.Message}");
             }
 
-            var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-            int delay = (int)Math.Max(0, frameDurationMs - elapsed);
+            // Frame-rate regulation using Stopwatch (avoids DateTime drift)
+            long elapsedMs = sw.ElapsedMilliseconds;
+            int delay = (int)Math.Max(0, frameDurationMs - elapsedMs);
 
             if (delay > 0)
             {

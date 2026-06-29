@@ -17,54 +17,69 @@ public class SeekController : ISeekController
     private int? _pendingSeekFrame;
     private Action<int>? _pendingSeekAction;
     private bool _isProcessing;
+    private readonly object _seekLock = new();
 
     public void EnqueueSeek(int frame, Action<int> seekAction)
     {
-        _pendingSeekFrame = frame;
-        _pendingSeekAction = seekAction;
-
-        if (!_isProcessing)
+        if (seekAction == null) return;
+        lock (_seekLock)
         {
-            _isProcessing = true;
-            ProcessSeekAsync();
+            _pendingSeekFrame = frame;
+            _pendingSeekAction = seekAction;
+
+            if (!_isProcessing)
+            {
+                _isProcessing = true;
+                _ = ProcessSeekAsync();
+            }
         }
     }
 
-    private async void ProcessSeekAsync()
+    private async Task ProcessSeekAsync()
     {
-        while (_pendingSeekFrame.HasValue)
+        while (true)
         {
+            int frame;
+            Action<int> action;
+
+            lock (_seekLock)
+            {
+                if (!_pendingSeekFrame.HasValue || _pendingSeekAction == null)
+                {
+                    _isProcessing = false;
+                    return;
+                }
+                frame = _pendingSeekFrame.Value;
+                action = _pendingSeekAction;
+                _pendingSeekFrame = null;
+                _pendingSeekAction = null;
+            }
+
             long elapsed = _throttleStopwatch.ElapsedMilliseconds;
             if (elapsed < ThrottleMs)
             {
                 await Task.Delay((int)(ThrottleMs - elapsed));
             }
 
-            if (_pendingSeekFrame.HasValue && _pendingSeekAction != null)
+            _throttleStopwatch.Restart();
+
+            try
             {
-                int frame = _pendingSeekFrame.Value;
-                var action = _pendingSeekAction;
-
-                _pendingSeekFrame = null;
-                _pendingSeekAction = null;
-                _throttleStopwatch.Restart();
-
-                try
-                {
-                    action(frame);
-                }
-                catch
-                {
-                    // Ignore errors in UI callbacks
-                }
+                action(frame);
+            }
+            catch
+            {
+                // Ignore errors in UI callbacks
             }
         }
-        _isProcessing = false;
     }
 
     public void Reset()
     {
-        _pendingSeekFrame = null;
-        _pendingSeekAction = null;
+        lock (_seekLock)
+        {
+            _pendingSeekFrame = null;
+            _pendingSeekAction = null;
+        }
     }
 }
