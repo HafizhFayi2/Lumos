@@ -98,16 +98,32 @@ export function PreviewPanel() {
           className={`${aspectClass} max-h-full max-w-full bg-black rounded-lg border border-white/5 shadow-2xl relative overflow-hidden flex items-center justify-center`}
           style={{ width: '100%' }}
         >
-          {activeAsset?.type === 'video' ? (
+          {activeAsset?.type === 'video' && activeItem ? (
             <video
               ref={videoRef}
               src={activeAsset.url}
               className="w-full h-full object-contain"
               playsInline
+              style={{
+                transform: `translate(${activeItem.x}px, ${activeItem.y}px) rotate(${activeItem.rotation}deg) scale(${activeItem.scaleX}, ${activeItem.scaleY})`,
+                opacity: activeItem.opacity,
+                transformOrigin: 'center',
+                transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
+              }}
               onEnded={() => dispatch({ type: 'SET_PLAYING', playing: false })}
             />
-          ) : activeAsset?.type === 'image' ? (
-            <img src={activeAsset.url} alt="" className="w-full h-full object-contain" />
+          ) : activeAsset?.type === 'image' && activeItem ? (
+            <img
+              src={activeAsset.url}
+              alt=""
+              className="w-full h-full object-contain"
+              style={{
+                transform: `translate(${activeItem.x}px, ${activeItem.y}px) rotate(${activeItem.rotation}deg) scale(${activeItem.scaleX}, ${activeItem.scaleY})`,
+                opacity: activeItem.opacity,
+                transformOrigin: 'center',
+                transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
+              }}
+            />
           ) : (
             <div className="flex flex-col items-center gap-3 opacity-30">
               <div className="w-16 h-16 rounded-xl bg-white/5 flex items-center justify-center">

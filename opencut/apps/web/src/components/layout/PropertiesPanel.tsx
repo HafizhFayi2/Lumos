@@ -102,7 +102,7 @@ function OpacitySlider({ value, onChange }: { value: number; onChange: (v: numbe
 }
 
 function TransformSection({ item }: { item: TrackItem }) {
-  const { dispatch } = useEditor();
+  const { state, dispatch } = useEditor();
   const update = useCallback((updates: Partial<TrackItem>) => {
     dispatch({ type: 'UPDATE_ITEM', id: item.id, updates });
   }, [dispatch, item.id]);
@@ -110,6 +110,9 @@ function TransformSection({ item }: { item: TrackItem }) {
   const resetTransform = () => {
     update({ x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, opacity: 1 });
   };
+
+  const asset = state.assets.find(a => a.id === item.assetId);
+  const isPortrait = asset && asset.width && asset.height && asset.height > asset.width;
 
   return (
     <div className="mb-6">
@@ -156,6 +159,46 @@ function TransformSection({ item }: { item: TrackItem }) {
           <span className="text-xs text-zinc-400">Opacity</span>
           <OpacitySlider value={Math.round(item.opacity * 100)} onChange={v => update({ opacity: v / 100 })} />
         </div>
+
+        {/* Portrait to Landscape Helpers */}
+        {isPortrait && (
+          <div className="mt-4 pt-4 border-t border-white/5">
+            <span className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider block mb-2">
+              Portrait to Landscape Helpers
+            </span>
+            <div className="flex gap-1.5">
+              <Button
+                variant="secondary"
+                className="text-[10px] h-7 px-2 flex-1 bg-white/5 hover:bg-white/10 text-zinc-300 font-medium"
+                onClick={() => {
+                  if (asset.width && asset.height) {
+                    const fillScale = (16 / 9) / (asset.width / asset.height);
+                    update({ scaleX: fillScale, scaleY: fillScale, rotation: 0, x: 0, y: 0 });
+                  }
+                }}
+                title="Scale to fill entire frame"
+              >
+                Fill Frame
+              </Button>
+              <Button
+                variant="secondary"
+                className="text-[10px] h-7 px-2 flex-1 bg-white/5 hover:bg-white/10 text-zinc-300 font-medium"
+                onClick={() => update({ rotation: 90, scaleX: 1, scaleY: 1, x: 0, y: 0 })}
+                title="Rotate 90 degrees"
+              >
+                Rotate 90°
+              </Button>
+              <Button
+                variant="secondary"
+                className="text-[10px] h-7 px-2 flex-1 bg-white/5 hover:bg-white/10 text-zinc-300 font-medium"
+                onClick={() => update({ scaleX: 1, scaleY: 1, rotation: 0, x: 0, y: 0 })}
+                title="Fit video in center with sidebars"
+              >
+                Fit (Bars)
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

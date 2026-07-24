@@ -96,18 +96,25 @@ function TimelineClip({
   isSelected,
   assetName,
   assetType,
+  assetUrl,
+  assetThumbnails,
   onSelect,
   onMove,
+  onResize,
 }: {
   item: TrackItem;
   zoom: number;
   isSelected: boolean;
   assetName: string;
   assetType: string;
+  assetUrl?: string;
+  assetThumbnails?: string[];
   onSelect: () => void;
   onMove: (newStart: number) => void;
+  onResize: (newDuration: number) => void;
 }) {
   const dragStart = useRef<{ mouseX: number; itemStart: number } | null>(null);
+  const resizeStart = useRef<{ mouseX: number; itemDuration: number } | null>(null);
 
   const colorClass =
     assetType === 'audio' ? 'bg-emerald-500/20 border-emerald-500/40' :
@@ -121,20 +128,87 @@ function TimelineClip({
     onSelect();
     dragStart.current = { mouseX: e.clientX, itemStart: item.startTime };
 
-    function onMove(ev: MouseEvent) {
+    function onMouseMove(ev: MouseEvent) {
       if (!dragStart.current) return;
       const delta = (ev.clientX - dragStart.current.mouseX) / zoom;
       const newStart = Math.max(0, dragStart.current.itemStart + delta);
       onMove(newStart);
     }
-    function onUp() {
+    function onMouseUp() {
       dragStart.current = null;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
     }
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
   }
+
+  function onResizeMouseDown(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    resizeStart.current = { mouseX: e.clientX, itemDuration: item.duration };
+
+    function onResizeMouseMove(ev: MouseEvent) {
+      if (!resizeStart.current) return;
+      const delta = (ev.clientX - resizeStart.current.mouseX) / zoom;
+      const newDuration = Math.max(0.1, resizeStart.current.itemDuration + delta);
+      onResize(newDuration);
+    }
+    function onResizeMouseUp() {
+      resizeStart.current = null;
+      window.removeEventListener('mousemove', onResizeMouseMove);
+      window.removeEventListener('mouseup', onResizeMouseUp);
+    }
+    window.addEventListener('mousemove', onResizeMouseMove);
+    window.addEventListener('mouseup', onResizeMouseUp);
+  }
+
+  const renderPreviews = () => {
+    if (!assetUrl) return null;
+    const clipWidth = Math.max(item.duration * zoom - 2, 20);
+    const thumbWidth = 80;
+    const count = Math.ceil(clipWidth / thumbWidth);
+
+    if (assetType === 'image') {
+      return (
+        <div className="absolute inset-0 flex overflow-hidden opacity-40 pointer-events-none select-none">
+          {Array.from({ length: count }).map((_, idx) => (
+            <img
+              key={idx}
+              src={assetUrl}
+              alt=""
+              className="h-full object-cover shrink-0"
+              style={{ width: thumbWidth }}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    if (assetType === 'video' && assetThumbnails && assetThumbnails.length > 0) {
+      return (
+        <div className="absolute inset-0 flex overflow-hidden opacity-45 pointer-events-none select-none">
+          {Array.from({ length: count }).map((_, idx) => {
+            const thumbIdx = Math.min(
+              Math.floor((idx / count) * assetThumbnails.length),
+              assetThumbnails.length - 1
+            );
+            return (
+              <img
+                key={idx}
+                src={assetThumbnails[thumbIdx]}
+                alt=""
+                className="h-full object-cover shrink-0 border-r border-white/5"
+                style={{ width: thumbWidth }}
+              />
+            );
+          })}
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <div
@@ -146,11 +220,21 @@ function TimelineClip({
       onMouseDown={onMouseDown}
       title={assetName}
     >
-      <div className="h-full flex items-center px-2">
-        <span className="text-[10px] text-white/70 truncate">{assetName}</span>
+      {/* Previews background */}
+      {renderPreviews()}
+
+      {/* Label overlay */}
+      <div className="absolute inset-0 flex items-center px-2 z-10 pointer-events-none">
+        <span className="text-[10px] text-white font-medium bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm truncate">
+          {assetName}
+        </span>
       </div>
+
       {/* Resize handle right */}
-      <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize bg-white/10 hover:bg-white/30 transition-colors" />
+      <div
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize bg-white/10 hover:bg-white/30 transition-colors z-20"
+        onMouseDown={onResizeMouseDown}
+      />
     </div>
   );
 }
@@ -235,6 +319,10 @@ export function TimelinePanel() {
 
   const handleItemMove = useCallback((id: string, newStart: number) => {
     dispatch({ type: 'UPDATE_ITEM', id, updates: { startTime: newStart } });
+  }, [dispatch]);
+
+  const handleItemResize = useCallback((id: string, newDuration: number) => {
+    dispatch({ type: 'UPDATE_ITEM', id, updates: { duration: newDuration } });
   }, [dispatch]);
 
   const totalWidth = Math.max(state.duration * state.zoom, 800);
@@ -455,14 +543,17 @@ export function TimelinePanel() {
                     const asset = state.assets.find(a => a.id === item.assetId);
                     return (
                       <div key={item.id} data-clip={item.id}>
-                        <TimelineClip
+                         <TimelineClip
                           item={item}
                           zoom={state.zoom}
                           isSelected={state.selectedItemId === item.id}
                           assetName={asset?.name ?? 'Unknown'}
                           assetType={asset?.type ?? 'video'}
+                          assetUrl={asset?.url}
+                          assetThumbnails={asset?.thumbnails}
                           onSelect={() => dispatch({ type: 'SET_SELECTED_ITEM', id: item.id })}
                           onMove={newStart => handleItemMove(item.id, newStart)}
+                          onResize={newDuration => handleItemResize(item.id, newDuration)}
                         />
                       </div>
                     );

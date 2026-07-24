@@ -14,6 +14,9 @@ export interface Asset {
   duration?: number; // seconds
   thumbnail?: string;
   file: File;
+  width?: number;
+  height?: number;
+  thumbnails?: string[];
 }
 
 export interface TrackItem {
@@ -180,13 +183,17 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
       };
     }
 
-    case 'UPDATE_ITEM':
+    case 'UPDATE_ITEM': {
+      const updatedItems = state.items.map(item =>
+        item.id === action.id ? { ...item, ...action.updates } : item
+      );
+      const maxEndTime = updatedItems.reduce((max, item) => Math.max(max, item.startTime + item.duration), 30);
       return {
         ...state,
-        items: state.items.map(item =>
-          item.id === action.id ? { ...item, ...action.updates } : item
-        ),
+        items: updatedItems,
+        duration: Math.max(state.duration, maxEndTime),
       };
+    }
 
     case 'DELETE_SELECTED_ITEM': {
       if (!state.selectedItemId) return state;
@@ -283,6 +290,73 @@ interface EditorContextValue {
 
 const EditorContext = createContext<EditorContextValue | null>(null);
 
+async function generateVideoThumbnails(url: string, duration: number, count: number = 8): Promise<string[]> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = 'anonymous';
+
+    const thumbnails: string[] = [];
+    let currentIndex = 0;
+    let finished = false;
+
+    const timeoutId = setTimeout(() => {
+      if (!finished) {
+        finished = true;
+        resolve(thumbnails);
+        video.src = '';
+      }
+    }, 4000);
+
+    function cleanupAndResolve() {
+      clearTimeout(timeoutId);
+      if (!finished) {
+        finished = true;
+        resolve(thumbnails);
+        video.src = '';
+      }
+    }
+
+    video.onloadeddata = () => {
+      seekNext();
+    };
+
+    function seekNext() {
+      if (finished) return;
+      if (currentIndex >= count) {
+        cleanupAndResolve();
+        return;
+      }
+      const time = (currentIndex / Math.max(1, count - 1)) * duration;
+      video.currentTime = Math.min(time, duration - 0.1);
+    }
+
+    video.onseeked = () => {
+      if (finished) return;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 120;
+        canvas.height = 68;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          thumbnails.push(canvas.toDataURL('image/jpeg', 0.6));
+        }
+      } catch (err) {
+        console.error("Error generating thumbnail frame:", err);
+      }
+      currentIndex++;
+      seekNext();
+    };
+
+    video.onerror = () => {
+      cleanupAndResolve();
+    };
+  });
+}
+
 export function EditorProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const rafRef = useRef<number | null>(null);
@@ -342,11 +416,39 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     if (type === 'video') {
       const video = document.createElement('video');
       video.src = url;
+      video.muted = true;
+      video.playsInline = true;
       video.onloadedmetadata = () => {
-        dispatch({ type: 'ADD_ASSET', asset: { ...asset, duration: video.duration } });
+        const duration = video.duration;
+        const width = video.videoWidth;
+        const height = video.videoHeight;
+        generateVideoThumbnails(url, duration, 8).then(thumbnails => {
+          dispatch({
+            type: 'ADD_ASSET',
+            asset: {
+              ...asset,
+              duration,
+              width,
+              height,
+              thumbnails,
+            }
+          });
+        });
       };
     } else if (type === 'image') {
-      dispatch({ type: 'ADD_ASSET', asset: { ...asset, duration: 5 } });
+      const img = new Image();
+      img.src = url;
+      img.onload = () => {
+        dispatch({
+          type: 'ADD_ASSET',
+          asset: {
+            ...asset,
+            duration: 5,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+          }
+        });
+      };
     } else {
       const audio = document.createElement('audio');
       audio.src = url;
@@ -361,6 +463,16 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     const asset = s.assets.find(a => a.id === assetId);
     if (!asset) return;
     const trackIndex = s.tracks.findIndex(t => t.id === trackId);
+    
+    // Auto-scale portrait assets to fill landscape (16:9) frame
+    let scaleX = 1;
+    let scaleY = 1;
+    if (asset.width && asset.height && asset.height > asset.width && s.aspectRatio === '16:9') {
+      const fillScale = (16 / 9) / (asset.width / asset.height);
+      scaleX = fillScale;
+      scaleY = fillScale;
+    }
+
     const item: TrackItem = {
       id: `item-${Date.now()}`,
       assetId,
@@ -371,8 +483,8 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       trimEnd: 0,
       x: 0,
       y: 0,
-      scaleX: 1,
-      scaleY: 1,
+      scaleX,
+      scaleY,
       rotation: 0,
       opacity: 1,
     };
