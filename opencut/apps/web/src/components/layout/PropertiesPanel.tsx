@@ -250,12 +250,24 @@ export function PropertiesPanel() {
                 {selectedAsset.type === 'video' && <span className="text-[10px] text-blue-400">VID</span>}
                 {selectedAsset.type === 'image' && <span className="text-[10px] text-purple-400">IMG</span>}
                 {selectedAsset.type === 'audio' && <span className="text-[10px] text-emerald-400">AUD</span>}
+                {selectedAsset.type === 'text' && <span className="text-[10px] text-indigo-400">TXT</span>}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-zinc-200 truncate">{selectedAsset.name}</p>
                 <p className="text-[10px] text-zinc-500">{selectedItem.duration.toFixed(1)}s</p>
               </div>
             </div>
+            {selectedAsset.type === 'text' && (
+              <div className="mt-4 bg-black/20 p-3 rounded-lg border border-white/5">
+                <span className="text-[10px] text-zinc-500 font-medium block mb-1.5">Text Field</span>
+                <textarea
+                  className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:border-indigo-500/50 resize-none h-16 transition-colors"
+                  value={selectedAsset.name}
+                  onChange={e => dispatch({ type: 'UPDATE_ASSET_NAME', id: selectedAsset.id, name: e.target.value })}
+                  placeholder="Enter text..."
+                />
+              </div>
+            )}
           </div>
         )}
 

@@ -9,7 +9,7 @@ export type PropertiesTab = 'Properties' | 'Adjust' | 'Effects' | 'Transitions';
 export interface Asset {
   id: string;
   name: string;
-  type: 'video' | 'image' | 'audio';
+  type: 'video' | 'image' | 'audio' | 'text';
   url: string;
   duration?: number; // seconds
   thumbnail?: string;
@@ -33,6 +33,8 @@ export interface TrackItem {
   scaleY: number;
   rotation: number;
   opacity: number;
+  transition?: string;
+  effect?: string;
 }
 
 export interface Track {
@@ -53,6 +55,7 @@ export interface EditorState {
   activeSidebarTab: SidebarTab;
   activePropertiesTab: PropertiesTab;
   selectedItemId: string | null;
+  previewAssetId: string | null;
   assets: Asset[];
   tracks: Track[];
   items: TrackItem[];
@@ -72,12 +75,15 @@ type EditorAction =
   | { type: 'SET_SIDEBAR_TAB'; tab: SidebarTab }
   | { type: 'SET_PROPERTIES_TAB'; tab: PropertiesTab }
   | { type: 'SET_SELECTED_ITEM'; id: string | null }
+  | { type: 'SET_PREVIEW_ASSET'; id: string | null }
   | { type: 'ADD_ASSET'; asset: Asset }
   | { type: 'ADD_TRACK' }
   | { type: 'TOGGLE_TRACK_VISIBILITY'; trackId: string }
   | { type: 'TOGGLE_TRACK_LOCK'; trackId: string }
   | { type: 'ADD_ITEM'; item: TrackItem }
+  | { type: 'ADD_ITEM_AT_TIME'; assetId: string; trackId: string; startTime: number }
   | { type: 'UPDATE_ITEM'; id: string; updates: Partial<TrackItem> }
+  | { type: 'UPDATE_ASSET_NAME'; id: string; name: string }
   | { type: 'DELETE_SELECTED_ITEM' }
   | { type: 'SPLIT_ITEM_AT_PLAYHEAD' }
   | { type: 'UNDO' }
@@ -98,6 +104,7 @@ const initialState: EditorState = {
   activeSidebarTab: 'Media',
   activePropertiesTab: 'Properties',
   selectedItemId: null,
+  previewAssetId: null,
   assets: [],
   tracks: [
     { id: 'track-video-1', type: 'video', name: 'Video 1', visible: true, locked: false },
@@ -139,7 +146,15 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
       return { ...state, activePropertiesTab: action.tab };
 
     case 'SET_SELECTED_ITEM':
-      return { ...state, selectedItemId: action.id };
+      return { ...state, selectedItemId: action.id, previewAssetId: action.id ? null : state.previewAssetId };
+
+    case 'SET_PREVIEW_ASSET':
+      return {
+        ...state,
+        previewAssetId: action.id,
+        selectedItemId: action.id ? null : state.selectedItemId,
+        isPlaying: action.id ? false : state.isPlaying,
+      };
 
     case 'ADD_ASSET':
       return { ...state, assets: [...state.assets, action.asset] };
@@ -182,6 +197,44 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
         duration: Math.max(state.duration, action.item.startTime + action.item.duration),
       };
     }
+
+    case 'ADD_ITEM_AT_TIME': {
+      const asset = state.assets.find(a => a.id === action.assetId);
+      if (!asset) return state;
+      const trackIndex = state.tracks.findIndex(t => t.id === action.trackId);
+      if (trackIndex === -1) return state;
+
+      const item: TrackItem = {
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        assetId: action.assetId,
+        trackIndex,
+        startTime: action.startTime,
+        duration: asset.duration ?? 5,
+        trimStart: 0,
+        trimEnd: 0,
+        x: 0,
+        y: 0,
+        scaleX: 1,
+        scaleY: 1,
+        rotation: 0,
+        opacity: 1,
+      };
+
+      const savedItems = state.items;
+      return {
+        ...state,
+        items: [...state.items, item],
+        undoStack: [...state.undoStack, savedItems],
+        redoStack: [],
+        duration: Math.max(state.duration, item.startTime + item.duration),
+      };
+    }
+
+    case 'UPDATE_ASSET_NAME':
+      return {
+        ...state,
+        assets: state.assets.map(a => a.id === action.id ? { ...a, name: action.name } : a),
+      };
 
     case 'UPDATE_ITEM': {
       const updatedItems = state.items.map(item =>
@@ -464,15 +517,6 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     if (!asset) return;
     const trackIndex = s.tracks.findIndex(t => t.id === trackId);
     
-    // Auto-scale portrait assets to fill landscape (16:9) frame
-    let scaleX = 1;
-    let scaleY = 1;
-    if (asset.width && asset.height && asset.height > asset.width && s.aspectRatio === '16:9') {
-      const fillScale = (16 / 9) / (asset.width / asset.height);
-      scaleX = fillScale;
-      scaleY = fillScale;
-    }
-
     const item: TrackItem = {
       id: `item-${Date.now()}`,
       assetId,
@@ -483,8 +527,8 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       trimEnd: 0,
       x: 0,
       y: 0,
-      scaleX,
-      scaleY,
+      scaleX: 1,
+      scaleY: 1,
       rotation: 0,
       opacity: 1,
     };

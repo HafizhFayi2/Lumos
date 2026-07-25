@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Settings, ChevronDown, CheckCircle2, Download } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { ChevronDown, CheckCircle2, Download } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useEditor } from '../../store/editor-store';
 import type { AspectRatio } from '../../store/editor-store';

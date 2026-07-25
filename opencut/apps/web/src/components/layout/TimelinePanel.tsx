@@ -527,6 +527,25 @@ export function TimelinePanel() {
                   className={`${isVideo ? 'h-20' : 'h-16'} border-b border-white/5 relative ${
                     track.visible ? '' : 'opacity-30'
                   } ${track.locked ? 'pointer-events-none' : ''}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const assetId = e.dataTransfer.getData('text/plain');
+                    if (assetId) {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const dropX = e.clientX - rect.left;
+                      const dropTime = Math.max(0, dropX / state.zoom);
+                      dispatch({
+                        type: 'ADD_ITEM_AT_TIME',
+                        assetId,
+                        trackId: track.id,
+                        startTime: dropTime,
+                      });
+                    }
+                  }}
                 >
                   {/* Empty track hint */}
                   {trackItems.length === 0 && (

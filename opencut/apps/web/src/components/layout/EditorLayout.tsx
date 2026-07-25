@@ -1,4 +1,3 @@
-import React from 'react';
 import { TopBar } from './TopBar';
 import { LeftSidebar } from './LeftSidebar';
 import { AssetsPanel } from './AssetsPanel';

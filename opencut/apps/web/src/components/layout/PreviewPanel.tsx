@@ -8,14 +8,54 @@ import { useEditor, formatTime } from '../../store/editor-store';
 
 const FIT_OPTIONS = ['Fit', '25%', '50%', '75%', '100%'];
 
+function getAspectRatioDims(ratio: string): [number, number] {
+  if (ratio === '9:16') return [9, 16];
+  if (ratio === '1:1') return [1, 1];
+  if (ratio === '4:3') return [4, 3];
+  return [16, 9];
+}
+
 export function PreviewPanel() {
   const { state, dispatch, togglePlay } = useEditor();
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFitMenu, setShowFitMenu] = useState(false);
   const [fitLabel, setFitLabel] = useState('Fit');
   const fitMenuRef = useRef<HTMLDivElement>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+
+  // Compute canvas pixel size from container via ResizeObserver
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const compute = () => {
+      const { width, height } = el.getBoundingClientRect();
+      const pad = 32; // 16px each side
+      const aw = width - pad;
+      const ah = height - pad;
+      if (aw <= 0 || ah <= 0) return;
+      const [rw, rh] = getAspectRatioDims(state.aspectRatio);
+      const canvasAspect = rw / rh;
+      const containerAspect = aw / ah;
+      let cw: number, ch: number;
+      if (containerAspect > canvasAspect) {
+        // Container wider than canvas → height-constrained
+        ch = ah;
+        cw = ch * canvasAspect;
+      } else {
+        // Container taller than canvas → width-constrained
+        cw = aw;
+        ch = cw / canvasAspect;
+      }
+      setCanvasSize({ width: Math.round(cw), height: Math.round(ch) });
+    };
+    compute();
+    const obs = new ResizeObserver(compute);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [state.aspectRatio]);
 
   // Sync video element with playing state
   useEffect(() => {
@@ -26,16 +66,16 @@ export function PreviewPanel() {
     } else {
       vid.pause();
     }
-  }, [state.isPlaying]);
+  }, [state.isPlaying, state.previewAssetId]);
 
   // Sync video currentTime with store
   useEffect(() => {
     const vid = videoRef.current;
-    if (!vid || state.isPlaying) return;
+    if (!vid || state.isPlaying || state.previewAssetId) return;
     if (Math.abs(vid.currentTime - state.currentTime) > 0.2) {
       vid.currentTime = state.currentTime;
     }
-  }, [state.currentTime, state.isPlaying]);
+  }, [state.currentTime, state.isPlaying, state.previewAssetId]);
 
   // Fullscreen handling
   useEffect(() => {
@@ -58,72 +98,159 @@ export function PreviewPanel() {
   }, [showFitMenu]);
 
   const handleFullscreen = useCallback(() => {
-    if (!canvasRef.current) return;
+    if (!containerRef.current) return;
     if (!document.fullscreenElement) {
-      canvasRef.current.requestFullscreen();
+      containerRef.current.requestFullscreen();
     } else {
       document.exitFullscreen();
     }
   }, []);
 
   const handleSkipBack = useCallback(() => {
+    if (state.previewAssetId) dispatch({ type: 'SET_PREVIEW_ASSET', id: null });
     dispatch({ type: 'SET_CURRENT_TIME', time: 0 });
     dispatch({ type: 'SET_PLAYING', playing: false });
-  }, [dispatch]);
+  }, [dispatch, state.previewAssetId]);
 
   const handleSkipForward = useCallback(() => {
+    if (state.previewAssetId) dispatch({ type: 'SET_PREVIEW_ASSET', id: null });
     dispatch({ type: 'SET_CURRENT_TIME', time: state.duration });
     dispatch({ type: 'SET_PLAYING', playing: false });
-  }, [dispatch, state.duration]);
+  }, [dispatch, state.duration, state.previewAssetId]);
 
   // Find a video asset currently at playhead
+  const isPreviewingLibrary = state.previewAssetId !== null;
   const activeItem = state.items.find(item =>
     item.startTime <= state.currentTime &&
     item.startTime + item.duration >= state.currentTime
   );
-  const activeAsset = activeItem ? state.assets.find(a => a.id === activeItem.assetId) : null;
+  
+  const activeAsset = isPreviewingLibrary
+    ? state.assets.find(a => a.id === state.previewAssetId)
+    : (activeItem ? state.assets.find(a => a.id === activeItem.assetId) : null);
 
-  // Aspect ratio CSS
-  const aspectClass =
-    state.aspectRatio === '9:16' ? 'aspect-[9/16]' :
-    state.aspectRatio === '1:1' ? 'aspect-square' :
-    state.aspectRatio === '4:3' ? 'aspect-[4/3]' :
-    'aspect-video';
+  const getEffectFilter = (effect?: string): string => {
+    if (!effect) return '';
+    switch (effect) {
+      case 'Blur': return 'blur(6px)';
+      case 'Retro': return 'sepia(0.5) contrast(1.1) saturate(0.9)';
+      case 'Glow': return 'brightness(1.2) saturate(1.2)';
+      default: return '';
+    }
+  };
+
+  const getTextStyles = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.includes('neon') || lower.includes('glow')) {
+      return {
+        color: '#fff',
+        textShadow: '0 0 5px #fff, 0 0 10px #6366f1, 0 0 20px #6366f1, 0 0 30px #6366f1',
+      };
+    }
+    if (lower.includes('glitch')) {
+      return {
+        color: '#fff',
+        textShadow: '1.5px -1.5px 0 #ff0055, -1.5px 1.5px 0 #00fffa',
+        fontFamily: 'monospace',
+      };
+    }
+    if (lower.includes('bold') || lower.includes('title')) {
+      return {
+        fontSize: '2rem',
+        fontWeight: 900,
+        letterSpacing: '-0.04em',
+        color: '#fff',
+      };
+    }
+    return {
+      color: '#fff',
+      fontWeight: 500,
+      fontSize: '1.25rem',
+    };
+  };
+
+  let currentOpacity = activeItem ? activeItem.opacity : 1;
+  if (!isPreviewingLibrary && activeItem) {
+    if (activeItem.transition === 'Fade') {
+      const elapsed = state.currentTime - activeItem.startTime;
+      const fadeDuration = 0.5;
+      if (elapsed >= 0 && elapsed < fadeDuration) {
+        currentOpacity = (elapsed / fadeDuration) * activeItem.opacity;
+      }
+    }
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-[#09090B]">
       {/* Video Canvas Area */}
-      <div className="flex-1 p-4 flex items-center justify-center relative" ref={canvasRef}>
+      <div className="flex-1 flex items-center justify-center relative" ref={containerRef}>
         <div
-          className={`${aspectClass} max-h-full max-w-full bg-black rounded-lg border border-white/5 shadow-2xl relative overflow-hidden flex items-center justify-center`}
-          style={{ width: '100%' }}
+          ref={canvasRef}
+          className="bg-black rounded-lg border-2 border-indigo-500/50 shadow-2xl relative overflow-hidden flex items-center justify-center"
+          style={{
+            width: canvasSize.width || undefined,
+            height: canvasSize.height || undefined,
+          }}
         >
-          {activeAsset?.type === 'video' && activeItem ? (
+
+
+          {/* Vignette effect overlay */}
+          {!isPreviewingLibrary && activeItem?.effect === 'Vignette' && (
+            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_80px_rgba(0,0,0,0.85)] rounded-lg z-20" />
+          )}
+
+          {/* Film Grain noise overlay */}
+          {!isPreviewingLibrary && activeItem?.effect === 'Film Grain' && (
+            <div
+              className="absolute inset-0 pointer-events-none opacity-[0.06] z-20 bg-repeat"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`
+              }}
+            />
+          )}
+
+          {activeAsset?.type === 'video' ? (
             <video
               ref={videoRef}
               src={activeAsset.url}
               className="w-full h-full object-contain"
               playsInline
-              style={{
+              style={!isPreviewingLibrary && activeItem ? {
                 transform: `translate(${activeItem.x}px, ${activeItem.y}px) rotate(${activeItem.rotation}deg) scale(${activeItem.scaleX}, ${activeItem.scaleY})`,
-                opacity: activeItem.opacity,
+                opacity: currentOpacity,
                 transformOrigin: 'center',
                 transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
-              }}
+                filter: getEffectFilter(activeItem.effect),
+              } : {}}
               onEnded={() => dispatch({ type: 'SET_PLAYING', playing: false })}
             />
-          ) : activeAsset?.type === 'image' && activeItem ? (
+          ) : activeAsset?.type === 'image' ? (
             <img
               src={activeAsset.url}
               alt=""
               className="w-full h-full object-contain"
-              style={{
+              style={!isPreviewingLibrary && activeItem ? {
                 transform: `translate(${activeItem.x}px, ${activeItem.y}px) rotate(${activeItem.rotation}deg) scale(${activeItem.scaleX}, ${activeItem.scaleY})`,
-                opacity: activeItem.opacity,
+                opacity: currentOpacity,
                 transformOrigin: 'center',
                 transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
-              }}
+                filter: getEffectFilter(activeItem.effect),
+              } : {}}
             />
+          ) : activeAsset?.type === 'text' && activeItem ? (
+            <div
+              className="absolute text-center px-4 select-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
+              style={{
+                transform: `translate(${activeItem.x}px, ${activeItem.y}px) rotate(${activeItem.rotation}deg) scale(${activeItem.scaleX}, ${activeItem.scaleY})`,
+                opacity: currentOpacity,
+                transformOrigin: 'center',
+                transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
+                filter: getEffectFilter(activeItem.effect),
+                ...getTextStyles(activeAsset.name),
+              }}
+            >
+              {activeAsset.name}
+            </div>
           ) : (
             <div className="flex flex-col items-center gap-3 opacity-30">
               <div className="w-16 h-16 rounded-xl bg-white/5 flex items-center justify-center">
